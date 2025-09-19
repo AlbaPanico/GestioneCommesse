@@ -1,0 +1,21 @@
+# Node
+node_modules/
+dist/
+build/
+*.exe
+*.dll
+*.zip
+*.7z
+*.log
+
+
+# Log
+*.log
+
+# Ambienti
+.env
+.env.*
+
+# Editor
+.vscode/
+.idea/
