@@ -1,3 +1,4 @@
+# File: autopush.py
 import os, time, subprocess, threading
 from datetime import datetime
 from watchdog.observers import Observer
@@ -19,6 +20,32 @@ EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", "__pycache__"}
 def run(cmd):
     return subprocess.run(cmd, cwd=REPO_DIR, shell=True, capture_output=True, text=True)
 
+def inside_repo() -> bool:
+    r = run("git rev-parse --is-inside-work-tree")
+    return r.returncode == 0 and (r.stdout.strip() == "true" or r.stderr == "")
+
+def get_remote_url():
+    r = run("git remote get-url origin")
+    if r.returncode == 0:
+        return (r.stdout or "").strip()
+    return None
+
+def has_head() -> bool:
+    r = run("git rev-parse --verify HEAD")
+    return r.returncode == 0
+
+def ensure_branch(branch: str):
+    run(f"git checkout -B {branch}")
+
+def bootstrap_initial_commit():
+    run("git add -A")
+    status = run("git status --porcelain")
+    if status.stdout.strip():
+        c = run('git commit -m "chore: initial commit"')
+        if c.returncode != 0:
+            print("[ERRORE] Impossibile creare il commit iniziale:")
+            print((c.stderr or c.stdout).strip())
+
 class DebouncedPusher:
     def __init__(self, delay):
         self.delay = delay
@@ -34,6 +61,29 @@ class DebouncedPusher:
 
     def do_push(self):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Se non c'è HEAD (repo appena creata), prova a committare subito
+        if not has_head():
+            bootstrap_initial_commit()
+
+        # Prova a sincronizzarti con il remoto solo se esiste
+        remote_url = get_remote_url()
+        if remote_url:
+            fetch = run(f"git fetch origin {BRANCH}")
+            if fetch.returncode == 0:
+                rev_list = run(f"git rev-list --count HEAD..origin/{BRANCH}")
+                if rev_list.returncode == 0:
+                    try:
+                        remote_ahead = int((rev_list.stdout or "0").strip() or "0")
+                    except ValueError:
+                        remote_ahead = 0
+                    if remote_ahead > 0:
+                        pull = run(f"git pull --rebase origin {BRANCH}")
+                        if pull.returncode != 0:
+                            print("[ERRORE PULL]", (pull.stderr or pull.stdout).strip())
+                            return
+            # se fetch fallisce, proseguo comunque con commit locali
+
         run("git add -A")
         status = run("git status --porcelain")
         if not status.stdout.strip():
@@ -42,7 +92,6 @@ class DebouncedPusher:
 
         commit = run(f'git commit -m "auto: sync {ts}"')
         if commit.returncode != 0:
-            # Alcune versioni di Git scrivono "nothing to commit" su stderr: non è un errore reale
             out = (commit.stdout + "\n" + commit.stderr).lower()
             if "nothing to commit" in out or "no changes added to commit" in out:
                 print("[skip] nulla da committare")
@@ -50,11 +99,14 @@ class DebouncedPusher:
             print("[ERRORE COMMIT]", (commit.stderr or commit.stdout).strip())
             return
 
-        push = run(f"git push origin {BRANCH}")
-        if push.returncode != 0:
-            print("[ERRORE PUSH]", push.stderr.strip())
+        if get_remote_url():
+            push = run(f"git push origin {BRANCH}")
+            if push.returncode != 0:
+                print("[ERRORE PUSH]", (push.stderr or push.stdout).strip())
+            else:
+                print(f"[OK] Pushed at {ts}")
         else:
-            print(f"[OK] Pushed at {ts}")
+            print(f"[OK] Commit locale creato alle {ts} (nessun remote configurato).")
 
 class Handler(FileSystemEventHandler):
     def __init__(self, pusher):
@@ -73,8 +125,27 @@ class Handler(FileSystemEventHandler):
         self.pusher.schedule()
 
 if __name__ == "__main__":
-    # assicurati di stare su main (crea main se non esiste)
-    run(f"git checkout -B {BRANCH}")
+    if not inside_repo():
+        print("[ERRORE GIT] Qui non sembra esserci una repo git. Esegui `git init` prima, oppure sposta lo script nella repo.")
+        try:
+            input("\nPremi INVIO per chiudere...")
+        except:
+            pass
+        raise SystemExit(1)
+
+    co = run(f"git checkout -B {BRANCH}")
+    if co.returncode != 0:
+        print("[ERRORE GIT] Impossibile fare checkout del branch.")
+        print((co.stderr or co.stdout).strip())
+        try:
+            input("\nPremi INVIO per chiudere...")
+        except:
+            pass
+        raise SystemExit(1)
+
+    # Primo commit al volo se repo appena creata
+    if not has_head():
+        bootstrap_initial_commit()
 
     pusher = DebouncedPusher(DEBOUNCE_SEC)
     obs = Observer()
@@ -85,5 +156,11 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
+        pass
+    finally:
         obs.stop()
-    obs.join()
+        obs.join()
+        try:
+            input("\nInterrotto. Premi INVIO per chiudere...")
+        except:
+            pass
