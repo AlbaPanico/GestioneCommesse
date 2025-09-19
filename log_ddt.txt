@@ -406,3 +406,36 @@ reportDdtPath']
 [2025-09-16 15:46:04] DEBUG dedupe: sovrascrivo riga esistente 24 per DDT 0100W
 [2025-09-16 15:46:04] DEBUG prezzoVendita ricevuto='80' -> usato=80.0
 [2025-09-16 15:46:04] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 24) | NomeCommessa='totem fast track' | Codice='C4904' | PrezzoVendita=80.0 | PDF_IN='DDT_0100W_C4904_16-09-2025.pdf'
+[2025-09-19 11:39:14] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-09-19 11:39:14] DEBUG nomeCommessa='CHANEL_barretta luminosa 80 cm_P_C4901B' descrizione='Assembraggio CHANEL_barretta luminosa 80 cm_P_C4901B'
+[2025-09-19 11:39:14] DEBUG estrazione: sorgente='Assembraggio CHANEL_barretta luminosa 80 cm_P_C4901B' -> estratto='barretta luminosa 80 cm'
+[2025-09-19 11:39:14] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-09-19 11:39:14] DEBUG nomeCommessa='CHANEL_barretta luminosa 80 cm_P_C4901B' descrizione='Assembraggio CHANEL_barretta luminosa 80 cm_P_C4901B'
+[2025-09-19 11:39:14] DEBUG estrazione: sorgente='Assembraggio CHANEL_barretta luminosa 80 cm_P_C4901B' -> estratto='barretta luminosa 80 cm'
+[2025-09-19 11:39:14] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\CHANEL_barretta luminosa 80 cm_P_C4901B\MATERIALI' esiste=True
+[2025-09-19 11:39:14] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\CHANEL_barretta luminosa 80 cm_P_C4901B\MATERIALI' esiste=True
+[2025-09-19 11:39:14] DEBUG codice_commessa_norm='C4901B' (raw='C4901B')
+[2025-09-19 11:39:14] DEBUG codice_commessa_norm='C4901B' (raw='C4901B')
+[2025-09-19 11:39:14] DEBUG MATERIALI contiene (3 file): DDT_0101W_C4901B_19-09-2025.pdf, DISTINTA com. 4901 A.xlsx, DISTINTA com. 4901 B.xlsx
+[2025-09-19 11:39:14] DEBUG MATERIALI contiene (3 file): DDT_0101W_C4901B_19-09-2025.pdf, DISTINTA com. 4901 A.xlsx, DISTINTA com. 4901 B.xlsx
+[2025-09-19 11:39:14] DEBUG match regex ENTRATA: DDT_0101W_C4901B_19-09-2025.pdf
+[2025-09-19 11:39:14] DEBUG match regex ENTRATA: DDT_0101W_C4901B_19-09-2025.pdf
+[2025-09-19 11:39:14] DEBUG MATERIALI contiene (3 file): DDT_0101W_C4901B_19-09-2025.pdf, DISTINTA com. 4901 A.xlsx, DISTINTA com. 4901 B.xlsx
+[2025-09-19 11:39:14] DEBUG MATERIALI contiene (3 file): DDT_0101W_C4901B_19-09-2025.pdf, DISTINTA com. 4901 A.xlsx, DISTINTA com. 4901 B.xlsx
+[2025-09-19 11:39:14] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 25
+[2025-09-19 11:39:14] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 25
+[2025-09-19 11:39:14] DEBUG prezzoVendita ricevuto='90.8' -> usato=90.8
+[2025-09-19 11:39:14] DEBUG prezzoVendita ricevuto='90.8' -> usato=90.8
+[2025-09-19 11:39:14] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 25) | NomeCommessa='barretta luminosa 80 cm' | Codice='C4901B' | PrezzoVendita=90.8 | PDF_IN='DDT_0101W_C4901B_19-09-2025.pdf'
+[2025-09-19 11:39:14] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 25) | NomeCommessa='barretta luminosa 80 cm' | Codice='C4901B' | PrezzoVendita=90.8 | PDF_IN='DDT_0101W_C4901B_19-09-2025.pdf'
+[2025-09-19 11:39:14] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-09-19 11:39:14] DEBUG nomeCommessa='CHANEL_barretta luminosa 80 cm_P_C4901B' descrizione='Assembraggio CHANEL_barretta luminosa 80 cm_P_C4901B'
+[2025-09-19 11:39:14] DEBUG estrazione: sorgente='Assembraggio CHANEL_barretta luminosa 80 cm_P_C4901B' -> estratto='barretta luminosa 80 cm'
+[2025-09-19 11:39:14] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\CHANEL_barretta luminosa 80 cm_P_C4901B\MATERIALI' esiste=True
+[2025-09-19 11:39:14] DEBUG codice_commessa_norm='C4901B' (raw='C4901B')
+[2025-09-19 11:39:14] DEBUG MATERIALI contiene (3 file): DDT_0101W_C4901B_19-09-2025.pdf, DISTINTA com. 4901 A.xlsx, DISTINTA com. 4901 B.xlsx
+[2025-09-19 11:39:14] DEBUG match regex ENTRATA: DDT_0101W_C4901B_19-09-2025.pdf
+[2025-09-19 11:39:14] DEBUG MATERIALI contiene (3 file): DDT_0101W_C4901B_19-09-2025.pdf, DISTINTA com. 4901 A.xlsx, DISTINTA com. 4901 B.xlsx
+[2025-09-19 11:39:14] DEBUG dedupe: sovrascrivo riga esistente 25 per DDT 0101W
+[2025-09-19 11:39:14] DEBUG prezzoVendita ricevuto='90.80' -> usato=90.8
+[2025-09-19 11:39:14] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 25) | NomeCommessa='barretta luminosa 80 cm' | Codice='C4901B' | PrezzoVendita=90.8 | PDF_IN='DDT_0101W_C4901B_19-09-2025.pdf'
