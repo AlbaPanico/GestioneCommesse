@@ -1877,19 +1877,22 @@ app.get('/api/settimanali-disponibili', (req, res) => {
 // PROTEK – settings + CSV grezzi
 // ───────────────────────────────────────────────────────────────────────────────
 app.post('/api/protek/settings', (req, res) => {
-  const { monitorPath, pantografi } = req.body;
+ const { monitorPath, pantografi, storicoConsumiUrl } = req.body;
   const dataDir = path.join(__dirname, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   const protekSettingsFile = path.join(dataDir, 'Proteksetting.json');
 
   // normalizza pantografi a array
   const pantografiArr = Array.isArray(pantografi) ? pantografi : [];
+const storicoClean = typeof storicoConsumiUrl === 'string' ? storicoConsumiUrl.replace(/"/g, '').trim() : '';
 
   try {
     const toSave = { monitorPath, pantografi: pantografiArr };
+const toSave = { monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean };
     fs.writeFileSync(protekSettingsFile, JSON.stringify(toSave, null, 2), 'utf8');
     // 👉 ora il backend fa eco dei valori salvati
     res.json({ ok: true, monitorPath, pantografi: pantografiArr });
+   res.json({ ok: true, monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean });
   } catch (err) {
     res.status(500).json({ error: err.toString() });
   }
@@ -1897,18 +1900,30 @@ app.post('/api/protek/settings', (req, res) => {
 
 app.get('/api/protek/settings', (req, res) => {
   const file = path.join(__dirname, 'data', 'Proteksetting.json');
-  if (!fs.existsSync(file)) return res.json({ monitorPath: '', pantografi: [] });
+  if (!fs.existsSync(file)) return res.json({ monitorPath: '', pantografi: [], storicoConsumiUrl: '' });
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    res.json({ monitorPath: data.monitorPath || '', pantografi: data.pantografi || [] });
-  } catch { res.json({ monitorPath: '', pantografi: [] }); }
+    res.json({
+      monitorPath: data.monitorPath || '',
+      pantografi: Array.isArray(data.pantografi) ? data.pantografi : [],
+      storicoConsumiUrl: typeof data.storicoConsumiUrl === 'string' ? data.storicoConsumiUrl.replace(/\"/g, '').trim() : ''
+    });
+  } catch { res.json({ monitorPath: '', pantografi: [], storicoConsumiUrl: '' }); }
 });
 
 function readProtekSettings() {
   const file = path.join(__dirname, 'data', 'Proteksetting.json');
-  if (!fs.existsSync(file)) return { monitorPath: '', pantografi: [] };
-  try { const data = JSON.parse(fs.readFileSync(file, 'utf8')); return { monitorPath: data.monitorPath || '', pantografi: Array.isArray(data.pantografi) ? data.pantografi : [] }; }
-  catch { return { monitorPath: '', pantografi: [] }; }
+ if (!fs.existsSync(file)) return { monitorPath: '', pantografi: [], storicoConsumiUrl: '' };
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return {
+      monitorPath: data.monitorPath || '',
+      pantografi: Array.isArray(data.pantografi) ? data.pantografi : [],
+      storicoConsumiUrl: typeof data.storicoConsumiUrl === 'string' ? data.storicoConsumiUrl.replace(/\"/g, '').trim() : ''
+    };
+  } catch {
+    return { monitorPath: '', pantografi: [], storicoConsumiUrl: '' };
+  }
 }
 function detectDelimiter(firstLine) { const sc = (firstLine.match(/;/g) || []).length; const cc = (firstLine.match(/,/g) || []).length; return sc >= cc ? ';' : ','; }
 function csvToObjects(csvText) {

@@ -58,6 +58,7 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
   // settings
   const [monitorPath, setMonitorPath] = useState("");   // UNC folder con i CSV
   const [pantografi, setPantografi] = useState([]);     // opzionale
+const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
 
   // data solo per la vista “pagina autonoma”
   const [jobs, setJobs] = useState([]);
@@ -75,6 +76,8 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
       return null;
     }
     const s = r.data || {};
+const storicoRaw = typeof s.storicoConsumiUrl === "string" ? s.storicoConsumiUrl : "";
+    const storicoClean = storicoRaw.replace(/"/g, "").trim();
     setMonitorPath(s.monitorPath || "");
     setPantografi(Array.isArray(s.pantografi) ? s.pantografi : []);
     return s;
@@ -248,7 +251,8 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
       return;
     }
 
-    const body = { monitorPath: monitorPath.trim(), pantografi };
+    const storicoClean = (storicoConsumiUrl || "").replace(/"/g, "").trim();
+    const body = { monitorPath: monitorPath.trim(), pantografi, storicoConsumiUrl: storicoClean };
 
     try {
       setSaving(true);
@@ -273,7 +277,7 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
       const hhmm = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
       setLastSavedAt(hhmm);
       setSuccess(r.__nonJson ? `✓ Salvato alle ${hhmm} (risposta non JSON)` : `✓ Salvato alle ${hhmm}`);
-      onSaved?.(); // notifica il genitore (protek.jsx) per ricaricare tabella
+      onSaved?.({ monitorPath: monitorPath.trim(), pantografi, storicoConsumiUrl: storicoClean }); // notifica il genitore (protek.jsx) per ricaricare tabella e URL
 
     } catch (e) {
       setError(`Errore salvataggio impostazioni: ${String(e)}`);
@@ -396,6 +400,23 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
             <p className="mt-2 text-xs text-gray-500">
               Inserisci il percorso UNC dove si trovano i file CSV di Protek.
             </p>
+          </div>
+
+ <div className="mt-4">
+            <label className="block text-sm font-medium">
+              Storico consumi energia (URL)
+            </label>
+            <input
+              type="text"
+              className="mt-1 w-full border rounded-lg p-2 font-mono"
+              placeholder="http://192.168.1.250:3000/storico"
+              value={storicoConsumiUrl}
+              onChange={(e) => {
+                setSuccess("");
+                setStoricoConsumiUrl(e.target.value);
+              }}
+              disabled={saving}
+            />
           </div>
 
           {/* opzionale: gestione elenco pantografi */}
@@ -675,6 +696,23 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
                 <p className="mt-2 text-xs text-gray-500">
                   Inserisci il percorso UNC dove si trovano i file CSV di Protek.
                 </p>
+              </div>
+
+  <div className="mt-4">
+                <label className="block text-sm font-medium">
+                  Storico consumi energia (URL)
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 w-full border rounded-lg p-2 font-mono"
+                  placeholder="http://192.168.1.250:3000/storico"
+                  value={storicoConsumiUrl}
+                  onChange={(e) => {
+                    setSuccess("");
+                    setStoricoConsumiUrl(e.target.value);
+                  }}
+                  disabled={saving}
+                />
               </div>
 
               {/* opzionale: gestione elenco pantografi */}

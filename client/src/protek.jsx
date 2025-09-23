@@ -2,6 +2,25 @@
 import React, { useEffect, useMemo, useState } from "react";
 import NewSlideProtek from "./NewSlideProtek";
 
+const PROTEK_BTN_STYLE = {
+  padding: "10px 20px",
+  background: "#1A202C",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+  boxShadow: "0 4px 6px rgba(0,0,0,.3)",
+  transition: "transform .2s",
+};
+const PROTEK_BTN_HOVER = {
+  transform: "scale(1.05)",
+  boxShadow: "0 6px 8px rgba(0,0,0,.4)",
+};
+const PROTEK_CONSUMI_URL = "http://192.168.1.250:3000/";
+const PROTEK_STORICO_FALLBACK = "http://192.168.1.250:3000/storico";
+const PROTEK_STORICO_CONFIRM = "Vuoi accedere alla finestra Storico? pin 99999 puk 00000 9999 00000";
+
+
 /* ----------------- fetch robusto ----------------- */
 async function safeFetchJson(input, init) {
   const res = await fetch(input, init);
@@ -64,6 +83,7 @@ export default function ProtekPage({ onBack, server }) {
   const [stateFilter, setStateFilter] = useState("ALL");
   const [refreshedAt, setRefreshedAt] = useState("");
   const [meta, setMeta] = useState(null);
+ const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   /* ----- normalizza da /programs ----- */
@@ -128,6 +148,18 @@ export default function ProtekPage({ onBack, server }) {
       };
     });
 
+const fetchSettings = async () => {
+    try {
+      const res = await safeFetchJson(api("/api/protek/settings"));
+      if (res.ok && res.data) {
+        const raw = typeof res.data.storicoConsumiUrl === "string" ? res.data.storicoConsumiUrl : "";
+        setStoricoConsumiUrl(raw.replace(/"/g, "").trim());
+      }
+    } catch (e) {
+      console.warn('[PROTEK] Impossibile leggere impostazioni:', e?.message || e);
+    }
+  };
+
   /* ----------------- load ----------------- */
   const load = async () => {
     try {
@@ -170,10 +202,27 @@ export default function ProtekPage({ onBack, server }) {
     }
   };
 
-  useEffect(() => {
+ const reloadAll = () => {
+    fetchSettings();
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+};
+
+  useEffect(() => {
+    reloadAll();
+    // eslint-disable-next-line react-hooks-exhaustive-deps
   }, []);
+
+ const handleSettingsSaved = (payload) => {
+    if (payload && typeof payload.storicoConsumiUrl === "string") {
+      setStoricoConsumiUrl(payload.storicoConsumiUrl.replace(/"/g, "").trim());
+    }
+    reloadAll();
+  };
+
+  const handleSettingsClose = () => {
+    setSettingsOpen(false);
+    setTimeout(reloadAll, 100);
+  };
 
   const filtered = useMemo(() => {
   const q = search.trim().toLowerCase();
@@ -192,6 +241,19 @@ export default function ProtekPage({ onBack, server }) {
     return passesSearch && passesState;
   });
 }, [rows, search, stateFilter]);
+
+const storicoUrlClean = useMemo(() => (storicoConsumiUrl || "").replace(/"/g, "").trim(), [storicoConsumiUrl]);
+  const storicoEffectiveUrl = storicoUrlClean || PROTEK_STORICO_FALLBACK;
+
+  const handleOpenConsumi = () => {
+    window.open(PROTEK_CONSUMI_URL, '_blank');
+  };
+
+  const handleOpenStorico = () => {
+    if (window.confirm(PROTEK_STORICO_CONFIRM)) {
+      window.open(storicoEffectiveUrl, '_blank');
+    }
+  };
 
 
   return (
@@ -228,13 +290,36 @@ export default function ProtekPage({ onBack, server }) {
 
           <button
             className="px-3 py-1 rounded-xl shadow text-sm hover:shadow-md"
-            onClick={load}
+            onClick={reloadAll}
             title="Aggiorna"
           >
             Aggiorna
           </button>
         </div>
       </div>
+
+ <div
+        style={{ display: "flex", flexDirection: "row", gap: 20, justifyContent: "center", marginBottom: 12 }}
+      >
+        <button
+          style={PROTEK_BTN_STYLE}
+          onMouseOver={(e) => Object.assign(e.currentTarget.style, PROTEK_BTN_HOVER)}
+          onMouseOut={(e) => Object.assign(e.currentTarget.style, PROTEK_BTN_STYLE)}
+          onClick={handleOpenConsumi}
+        >
+          Consumi kWh
+        </button>
+        <button
+          style={PROTEK_BTN_STYLE}
+          onMouseOver={(e) => Object.assign(e.currentTarget.style, PROTEK_BTN_HOVER)}
+          onMouseOut={(e) => Object.assign(e.currentTarget.style, PROTEK_BTN_STYLE)}
+          onClick={handleOpenStorico}
+          title={storicoEffectiveUrl}
+        >
+          Storico Consumi
+        </button>
+      </div>
+
 
       {/* INFO + FILTRI */}
       <div className="text-xs text-gray-500 flex items-center gap-3 flex-wrap">
@@ -328,10 +413,7 @@ export default function ProtekPage({ onBack, server }) {
               <div className="text-base font-semibold">Impostazioni Protek</div>
               <button
                 className="px-3 py-1 rounded-xl shadow text-sm hover:shadow-md"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setTimeout(load, 100);
-                }}
+                 onClick={handleSettingsClose}
               >
                 Chiudi
               </button>
@@ -339,11 +421,8 @@ export default function ProtekPage({ onBack, server }) {
             <div className="h-[calc(100%-48px)] overflow-auto">
               <NewSlideProtek
                 server={API_BASE}
-                onSaved={() => load()}
-                onClose={() => {
-                  setSettingsOpen(false);
-                  setTimeout(load, 100);
-                }}
+               onSaved={handleSettingsSaved}
+                onClose={handleSettingsClose}
               />
             </div>
           </div>

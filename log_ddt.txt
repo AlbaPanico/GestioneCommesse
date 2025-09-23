@@ -439,3 +439,39 @@ reportDdtPath']
 [2025-09-19 11:39:14] DEBUG dedupe: sovrascrivo riga esistente 25 per DDT 0101W
 [2025-09-19 11:39:14] DEBUG prezzoVendita ricevuto='90.80' -> usato=90.8
 [2025-09-19 11:39:14] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 25) | NomeCommessa='barretta luminosa 80 cm' | Codice='C4901B' | PrezzoVendita=90.8 | PDF_IN='DDT_0101W_C4901B_19-09-2025.pdf'
+[2025-09-19 16:40:09] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-09-19 16:40:09] DEBUG nomeCommessa='BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981' descrizione='Assembraggio BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981'
+[2025-09-19 16:40:09] DEBUG estrazione: sorgente='Assembraggio BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981' -> estratto='aggiornamento grafiche vetrine grandi + piccole'
+[2025-09-19 16:40:09] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-09-19 16:40:09] DEBUG nomeCommessa='BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981' descrizione='Assembraggio BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981'
+[2025-09-19 16:40:09] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981\MATERIALI' esiste=True
+[2025-09-19 16:40:09] DEBUG codice_commessa_norm='C4981' (raw='C4981')
+[2025-09-19 16:40:09] DEBUG estrazione: sorgente='Assembraggio BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981' -> estratto='aggiornamento grafiche vetrine grandi + piccole'
+[2025-09-19 16:40:09] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981\MATERIALI' esiste=True
+[2025-09-19 16:40:09] DEBUG codice_commessa_norm='C4981' (raw='C4981')
+[2025-09-19 16:40:09] DEBUG MATERIALI contiene (5 file): DDT_0035T_C4981_07-08-2025.pdf, DDT_0044T_C4981_11-09-2025.pdf, DDT_0102W_C4981_19-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981.xlsx
+[2025-09-19 16:40:09] DEBUG match regex ENTRATA: DDT_0102W_C4981_19-09-2025.pdf
+[2025-09-19 16:40:09] DEBUG MATERIALI contiene (5 file): DDT_0035T_C4981_07-08-2025.pdf, DDT_0044T_C4981_11-09-2025.pdf, DDT_0102W_C4981_19-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981.xlsx
+[2025-09-19 16:40:09] DEBUG MATERIALI contiene (5 file): DDT_0035T_C4981_07-08-2025.pdf, DDT_0044T_C4981_11-09-2025.pdf, DDT_0102W_C4981_19-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981.xlsx
+[2025-09-19 16:40:09] DEBUG match regex ENTRATA: DDT_0102W_C4981_19-09-2025.pdf
+[2025-09-19 16:40:09] DEBUG match regex USCITA: DDT_0044T_C4981_11-09-2025.pdf
+[2025-09-19 16:40:09] DEBUG MATERIALI contiene (5 file): DDT_0035T_C4981_07-08-2025.pdf, DDT_0044T_C4981_11-09-2025.pdf, DDT_0102W_C4981_19-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981.xlsx
+[2025-09-19 16:40:09] DEBUG match regex USCITA: DDT_0044T_C4981_11-09-2025.pdf
+[2025-09-19 16:40:09] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 26
+[2025-09-19 16:40:09] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 26
+[2025-09-19 16:40:09] DEBUG prezzoVendita ricevuto='62' -> usato=62.0
+[2025-09-19 16:40:09] DEBUG prezzoVendita ricevuto='62' -> usato=62.0
+[2025-09-19 16:40:09] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 26) | NomeCommessa='aggiornamento grafiche vetrine grandi + piccole' | Codice='C4981' | PrezzoVendita=62.0 | PDF_IN='DDT_0102W_C4981_19-09-2025.pdf'
+[2025-09-19 16:40:09] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 26) | NomeCommessa='aggiornamento grafiche vetrine grandi + piccole' | Codice='C4981' | PrezzoVendita=62.0 | PDF_IN='DDT_0102W_C4981_19-09-2025.pdf'
+[2025-09-19 16:40:09] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-09-19 16:40:09] DEBUG nomeCommessa='BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981' descrizione='Assembraggio BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981'
+[2025-09-19 16:40:09] DEBUG estrazione: sorgente='Assembraggio BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981' -> estratto='aggiornamento grafiche vetrine grandi + piccole'
+[2025-09-19 16:40:09] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981\MATERIALI' esiste=True
+[2025-09-19 16:40:09] DEBUG codice_commessa_norm='C4981' (raw='C4981')
+[2025-09-19 16:40:09] DEBUG MATERIALI contiene (5 file): DDT_0035T_C4981_07-08-2025.pdf, DDT_0044T_C4981_11-09-2025.pdf, DDT_0102W_C4981_19-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981.xlsx
+[2025-09-19 16:40:09] DEBUG match regex ENTRATA: DDT_0102W_C4981_19-09-2025.pdf
+[2025-09-19 16:40:09] DEBUG MATERIALI contiene (5 file): DDT_0035T_C4981_07-08-2025.pdf, DDT_0044T_C4981_11-09-2025.pdf, DDT_0102W_C4981_19-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_BIONIKE_aggiornamento grafiche vetrine grandi + piccole_P_C4981.xlsx
+[2025-09-19 16:40:09] DEBUG match regex USCITA: DDT_0044T_C4981_11-09-2025.pdf
+[2025-09-19 16:40:09] DEBUG dedupe: sovrascrivo riga esistente 26 per DDT 0102W
+[2025-09-19 16:40:09] DEBUG prezzoVendita ricevuto='62.00' -> usato=62.0
+[2025-09-19 16:40:10] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 26) | NomeCommessa='aggiornamento grafiche vetrine grandi + piccole' | Codice='C4981' | PrezzoVendita=62.0 | PDF_IN='DDT_0102W_C4981_19-09-2025.pdf'
