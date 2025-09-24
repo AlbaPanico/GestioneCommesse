@@ -80,7 +80,7 @@ const storicoRaw = typeof s.storicoConsumiUrl === "string" ? s.storicoConsumiUrl
     const storicoClean = storicoRaw.replace(/"/g, "").trim();
     setMonitorPath(s.monitorPath || "");
     setPantografi(Array.isArray(s.pantografi) ? s.pantografi : []);
-    return s;
+    
   }
 
   // Carica impostazioni all'avvio (+ jobs se NON pannello)

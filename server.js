@@ -1877,24 +1877,22 @@ app.get('/api/settimanali-disponibili', (req, res) => {
 // PROTEK – settings + CSV grezzi
 // ───────────────────────────────────────────────────────────────────────────────
 app.post('/api/protek/settings', (req, res) => {
- const { monitorPath, pantografi, storicoConsumiUrl } = req.body;
+  const { monitorPath, pantografi, storicoConsumiUrl } = req.body;
   const dataDir = path.join(__dirname, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   const protekSettingsFile = path.join(dataDir, 'Proteksetting.json');
 
   // normalizza pantografi a array
   const pantografiArr = Array.isArray(pantografi) ? pantografi : [];
-const storicoClean = typeof storicoConsumiUrl === 'string' ? storicoConsumiUrl.replace(/"/g, '').trim() : '';
+  const storicoClean = typeof storicoConsumiUrl === 'string' ? storicoConsumiUrl.replace(/"/g, '').trim() : '';
 
   try {
-    const toSave = { monitorPath, pantografi: pantografiArr };
-const toSave = { monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean };
+    const toSave = { monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean };
     fs.writeFileSync(protekSettingsFile, JSON.stringify(toSave, null, 2), 'utf8');
     // 👉 ora il backend fa eco dei valori salvati
-    res.json({ ok: true, monitorPath, pantografi: pantografiArr });
-   res.json({ ok: true, monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean });
+    return res.json({ ok: true, monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean });
   } catch (err) {
-    res.status(500).json({ error: err.toString() });
+    return res.status(500).json({ error: err.toString() });
   }
 });
 

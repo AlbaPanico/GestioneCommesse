@@ -16,5 +16,6 @@
       "name": "",
       "code": ""
     }
-  ]
+  ],
+  "storicoConsumiUrl": "http://192.168.1.41/wsmeasure/big?language=it"
 }
