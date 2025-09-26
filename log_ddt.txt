@@ -475,3 +475,33 @@ reportDdtPath']
 [2025-09-19 16:40:09] DEBUG dedupe: sovrascrivo riga esistente 26 per DDT 0102W
 [2025-09-19 16:40:09] DEBUG prezzoVendita ricevuto='62.00' -> usato=62.0
 [2025-09-19 16:40:10] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 26) | NomeCommessa='aggiornamento grafiche vetrine grandi + piccole' | Codice='C4981' | PrezzoVendita=62.0 | PDF_IN='DDT_0102W_C4981_19-09-2025.pdf'
+[2025-09-24 13:37:52] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-09-24 13:37:52] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-09-24 13:37:52] DEBUG nomeCommessa='KIKO_cvt mus kuma kleenex  _P_C4973-11' descrizione='Assembraggio KIKO_cvt mus kuma kleenex  _P_C4973-11'
+[2025-09-24 13:37:52] DEBUG nomeCommessa='KIKO_cvt mus kuma kleenex  _P_C4973-11' descrizione='Assembraggio KIKO_cvt mus kuma kleenex  _P_C4973-11'
+[2025-09-24 13:37:52] DEBUG estrazione: sorgente='Assembraggio KIKO_cvt mus kuma kleenex  _P_C4973-11' -> estratto='cvt mus kuma kleenex'
+[2025-09-24 13:37:52] DEBUG estrazione: sorgente='Assembraggio KIKO_cvt mus kuma kleenex  _P_C4973-11' -> estratto='cvt mus kuma kleenex'
+[2025-09-24 13:37:52] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_cvt mus kuma kleenex  _P_C4973-11\MATERIALI' esiste=True
+[2025-09-24 13:37:52] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_cvt mus kuma kleenex  _P_C4973-11\MATERIALI' esiste=True
+[2025-09-24 13:37:52] DEBUG codice_commessa_norm='C4973-11' (raw='C4973-11')
+[2025-09-24 13:37:52] DEBUG MATERIALI contiene (3 file): DDT_0103W_C4973-11_24-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_cvt mus kuma kleenex  _P_C4973-11.xlsx
+[2025-09-24 13:37:52] DEBUG match regex ENTRATA: DDT_0103W_C4973-11_24-09-2025.pdf
+[2025-09-24 13:37:52] DEBUG MATERIALI contiene (3 file): DDT_0103W_C4973-11_24-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_cvt mus kuma kleenex  _P_C4973-11.xlsx
+[2025-09-24 13:37:52] DEBUG MATERIALI contiene (3 file): DDT_0103W_C4973-11_24-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_cvt mus kuma kleenex  _P_C4973-11.xlsx
+[2025-09-24 13:37:52] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 27
+[2025-09-24 13:37:52] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 27
+[2025-09-24 13:37:52] DEBUG prezzoVendita ricevuto='29' -> usato=29.0
+[2025-09-24 13:37:52] DEBUG prezzoVendita ricevuto='29' -> usato=29.0
+[2025-09-24 13:37:52] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 27) | NomeCommessa='cvt mus kuma kleenex' | Codice='C4973-11' | PrezzoVendita=29.0 | PDF_IN='DDT_0103W_C4973-11_24-09-2025.pdf'
+[2025-09-24 13:37:52] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 27) | NomeCommessa='cvt mus kuma kleenex' | Codice='C4973-11' | PrezzoVendita=29.0 | PDF_IN='DDT_0103W_C4973-11_24-09-2025.pdf'
+[2025-09-24 13:37:53] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-09-24 13:37:53] DEBUG nomeCommessa='KIKO_cvt mus kuma kleenex  _P_C4973-11' descrizione='Assembraggio KIKO_cvt mus kuma kleenex  _P_C4973-11'
+[2025-09-24 13:37:53] DEBUG estrazione: sorgente='Assembraggio KIKO_cvt mus kuma kleenex  _P_C4973-11' -> estratto='cvt mus kuma kleenex'
+[2025-09-24 13:37:53] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_cvt mus kuma kleenex  _P_C4973-11\MATERIALI' esiste=True
+[2025-09-24 13:37:53] DEBUG codice_commessa_norm='C4973-11' (raw='KIKO_cvt mus kuma kleenex  _P_C4973-11')
+[2025-09-24 13:37:53] DEBUG MATERIALI contiene (3 file): DDT_0103W_C4973-11_24-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_cvt mus kuma kleenex  _P_C4973-11.xlsx
+[2025-09-24 13:37:53] DEBUG match regex ENTRATA: DDT_0103W_C4973-11_24-09-2025.pdf
+[2025-09-24 13:37:53] DEBUG MATERIALI contiene (3 file): DDT_0103W_C4973-11_24-09-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_cvt mus kuma kleenex  _P_C4973-11.xlsx
+[2025-09-24 13:37:53] DEBUG dedupe: sovrascrivo riga esistente 27 per DDT 0103W
+[2025-09-24 13:37:53] DEBUG prezzoVendita ricevuto='29' -> usato=29.0
+[2025-09-24 13:37:53] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_09_2025.xlsx (riga 27) | NomeCommessa='cvt mus kuma kleenex' | Codice='C4973-11' | PrezzoVendita=29.0 | PDF_IN='DDT_0103W_C4973-11_24-09-2025.pdf'

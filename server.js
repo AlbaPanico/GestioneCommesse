@@ -1327,10 +1327,10 @@ app.post('/api/genera-commessa', (req, res) => {
     return res.status(400).json({ message: 'Manca la sorgente: duplicaDa oppure cartellaDaClonare.' });
   }
 
-  // Normalizza: aggiunge P/C se mancano; se uno è assente, genera un segnaposto univoco
+  // Normalizza: aggiunge P/C solo se presente un codice; se uno è assente resta vuoto
   const ensureCode = (val, letter) => {
     const v = String(val || '').trim().toUpperCase();
-    if (!v) return `${letter}${Date.now().toString().slice(-4)}`; // es. P1234/C1234
+    if (!v) return '';
     return v.startsWith(letter) ? v : (letter + v);
   };
   const effP = ensureCode(codiceProgetto, 'P');
@@ -1338,7 +1338,11 @@ app.post('/api/genera-commessa', (req, res) => {
 
   const quantitaFinale = quantita || 0;
   const dataConsegnaFinale = dataConsegna || '';
-  const folderName = `${brand}_${nomeProdotto}_${effP}_${effC}`;
+  const buildKey = (...values) => values
+    .map(v => String(v || '').trim())
+    .filter(Boolean)
+    .join('_');
+  const folderName = buildKey(brand, nomeProdotto, effP, effC);
   const folderPath = path.join(percorsoCartella, folderName);
 
   // Blocca se già esiste
@@ -1405,9 +1409,9 @@ app.post('/api/genera-commessa', (req, res) => {
     percorso: folderPath
   };
 
-  const uniqueKey = `${brand}_${nomeProdotto}_${effP}_${effC}`;
+  const uniqueKey = folderName;
   const existingIdx = commesseData.findIndex(c =>
-    `${(c.brand||'').trim()}_${(c.nomeProdotto||'').trim()}_${(c.codiceProgetto||'').trim()}_${(c.codiceCommessa||'').trim()}` === uniqueKey
+    buildKey(c.brand, c.nomeProdotto, c.codiceProgetto, c.codiceCommessa) === uniqueKeyuniqueKey
   );
   if (existingIdx >= 0) commesseData[existingIdx] = { ...commesseData[existingIdx], ...nuovaCommessa };
   else commesseData.push(nuovaCommessa);
