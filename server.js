@@ -1411,8 +1411,7 @@ app.post('/api/genera-commessa', (req, res) => {
 
   const uniqueKey = folderName;
   const existingIdx = commesseData.findIndex(c =>
-    buildKey(c.brand, c.nomeProdotto, c.codiceProgetto, c.codiceCommessa) === uniqueKeyuniqueKey
-  );
+    buildKey(c.brand, c.nomeProdotto, c.codiceProgetto, c.codiceCommessa) === uniqueKey  );
   if (existingIdx >= 0) commesseData[existingIdx] = { ...commesseData[existingIdx], ...nuovaCommessa };
   else commesseData.push(nuovaCommessa);
 
