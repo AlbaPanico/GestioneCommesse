@@ -1334,7 +1334,10 @@ app.post('/api/genera-commessa', (req, res) => {
     return v.startsWith(letter) ? v : (letter + v);
   };
   const effP = ensureCode(codiceProgetto, 'P');
-  const effC = ensureCode(codiceCommessa, 'C');
+
+  // 🟨 Richiesta: se l'utente non inserisce C, usa comunque "C" come segnaposto
+  let effC = ensureCode(codiceCommessa, 'C');
+  if (!effC) effC = 'C';
 
   const quantitaFinale = quantita || 0;
   const dataConsegnaFinale = dataConsegna || '';
