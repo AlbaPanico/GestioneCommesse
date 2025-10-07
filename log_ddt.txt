@@ -874,3 +874,36 @@ reportDdtPath']
 [2025-10-02 14:21:10] DEBUG dedupe: sovrascrivo riga esistente 10 per DDT 0114W
 [2025-10-02 14:21:10] DEBUG prezzoVendita ricevuto='50.90' -> usato=50.9
 [2025-10-02 14:21:10] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 10) | NomeCommessa='KIT MERCHANDISING 5 REGLETTE +5 FRONTALI + 8 CAVALIERINI' | Codice='C4928C' | PrezzoVendita=50.9 | PDF_IN='DDT_0114W_C4928C_02-10-2025.pdf'
+[2025-10-06 16:25:10] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-06 16:25:10] DEBUG nomeCommessa='ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028' descrizione='Assembraggio ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028'
+[2025-10-06 16:25:10] DEBUG estrazione: sorgente='Assembraggio ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028' -> estratto='barrette luminose VM Roma 48 cm'
+[2025-10-06 16:25:10] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-06 16:25:10] DEBUG nomeCommessa='ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028' descrizione='Assembraggio ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028'
+[2025-10-06 16:25:10] DEBUG estrazione: sorgente='Assembraggio ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028' -> estratto='barrette luminose VM Roma 48 cm'
+[2025-10-06 16:25:10] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028\MATERIALI' esiste=True
+[2025-10-06 16:25:10] DEBUG codice_commessa_norm='C5028' (raw='C5028')
+[2025-10-06 16:25:10] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028\MATERIALI' esiste=True
+[2025-10-06 16:25:10] DEBUG codice_commessa_norm='C5028' (raw='C5028')
+[2025-10-06 16:25:10] DEBUG MATERIALI contiene (1 file): DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:10] DEBUG match regex ENTRATA: DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:10] DEBUG MATERIALI contiene (1 file): DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:10] DEBUG match regex ENTRATA: DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:10] DEBUG MATERIALI contiene (1 file): DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:10] DEBUG MATERIALI contiene (1 file): DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:10] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 11
+[2025-10-06 16:25:10] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 11
+[2025-10-06 16:25:10] DEBUG prezzoVendita ricevuto='110' -> usato=110.0
+[2025-10-06 16:25:10] DEBUG prezzoVendita ricevuto='110' -> usato=110.0
+[2025-10-06 16:25:10] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 11) | NomeCommessa='barrette luminose VM Roma 48 cm' | Codice='C5028' | PrezzoVendita=110.0 | PDF_IN='DDT_0115W_C5028_06-10-2025.pdf'
+[2025-10-06 16:25:10] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 11) | NomeCommessa='barrette luminose VM Roma 48 cm' | Codice='C5028' | PrezzoVendita=110.0 | PDF_IN='DDT_0115W_C5028_06-10-2025.pdf'
+[2025-10-06 16:25:11] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-06 16:25:11] DEBUG nomeCommessa='ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028' descrizione='Assembraggio ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028'
+[2025-10-06 16:25:11] DEBUG estrazione: sorgente='Assembraggio ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028' -> estratto='barrette luminose VM Roma 48 cm'
+[2025-10-06 16:25:11] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\ESTEE LAUDER _barrette luminose VM Roma 48 cm_P1152_C5028\MATERIALI' esiste=True
+[2025-10-06 16:25:11] DEBUG codice_commessa_norm='C5028' (raw='C5028')
+[2025-10-06 16:25:11] DEBUG MATERIALI contiene (1 file): DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:11] DEBUG match regex ENTRATA: DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:11] DEBUG MATERIALI contiene (1 file): DDT_0115W_C5028_06-10-2025.pdf
+[2025-10-06 16:25:11] DEBUG dedupe: sovrascrivo riga esistente 11 per DDT 0115W
+[2025-10-06 16:25:11] DEBUG prezzoVendita ricevuto='110.00' -> usato=110.0
+[2025-10-06 16:25:11] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 11) | NomeCommessa='barrette luminose VM Roma 48 cm' | Codice='C5028' | PrezzoVendita=110.0 | PDF_IN='DDT_0115W_C5028_06-10-2025.pdf'

@@ -177,11 +177,30 @@ export default function EspositoriApp({ onLogout, onHome }) {
 const [masterBolleUscita, setMasterBolleUscita] = useState("");
 const [masterBolleEntrata, setMasterBolleEntrata] = useState("");
 
-// Costruzione URL WebSocket corretta (senza spazi e con import.meta.env valido)
-const WS_HOST = (import.meta?.env?.VITE_WS_URL || '192.168.1.250:3001').trim();
-const WS_PROTOCOL = (typeof window !== 'undefined' && window.location.protocol === 'https:') ? 'wss' : 'ws';
-const wsUrl = `${WS_PROTOCOL}://${WS_HOST}`;
-// console.log("WebSocket URL ->", wsUrl); // utile per debug
+// === URL WS con fallback multipli ===
+const rawEnv = (import.meta?.env?.VITE_WS_URL || '192.168.1.250:3001').trim();
+const pageIsHttps = (typeof window !== 'undefined' && window.location.protocol === 'https:');
+const defaultProto = pageIsHttps ? 'wss' : 'ws';
+
+// base senza trailing slash
+let baseWs = rawEnv.match(/^wss?:\/\//i) ? rawEnv : `${defaultProto}://${rawEnv}`;
+if (baseWs.endsWith('/')) baseWs = baseWs.slice(0, -1);
+
+// opzionale: consenti un path da env (es: VITE_WS_PATH=/ws)
+const wsPath = (import.meta?.env?.VITE_WS_PATH || '').trim().replace(/^\/*/, ''); // rimuove "/" iniziali
+
+// endpoint candidati (deduplicati), tutti con trailing "/"
+// Prova PRIMA /ws/, poi /socket/, infine la root "/"
+const candidates = [
+  `${baseWs}/ws/`,
+  `${baseWs}/socket/`,
+  `${baseWs}/${wsPath || ''}`.replace(/\/+$/, '') + '/',
+  `${baseWs}/`,
+].filter((u, i, arr) => u && arr.indexOf(u) === i);
+
+// solo per far scattare l'useEffect se cambia la base (valore qualsiasi)
+const wsUrl = candidates.join('|'); 
+// console.log('[WS] candidates:', candidates);
 
 // Aggiorna automaticamente il nome in base ai campi
 useEffect(() => {
@@ -220,33 +239,33 @@ useEffect(() => {
     setModalCalendarOpen(true);
   };
 
-const handleCloseCommessa = async () => {
-  console.log("handleCloseCommessa: bottone cliccato");
-  if (window.confirm("Sei sicuro di voler archiviare la commessa?")) {
-    try {
-      // Chiamata a /api/report con folderPath passato (assumendo che sia giusto)
-      const reportRes = await fetch('http://192.168.1.250:3001/api/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          folderPath: folderPath, // assicurati che questo sia il percorso corretto
-          reportData: { archiviata: true }
-        })
-      });
-      if (!reportRes.ok) {
-        const reportError = await reportRes.json();
-        alert("Errore nell'aggiornamento del report: " + reportError.message);
-        return;
-      }
-      // Aggiorna manualmente lo state per forzare il flag archiviata a true
-      setIsArchived(true);
-      setReportData(prev => ({ ...(prev || {}), archiviata: true }));
+const handleCloseCommessa = async (commessa) => {
+  if (!commessa?.percorso) {
+    alert("Percorso cartella non disponibile.");
+    return;
+  }
+  if (!window.confirm("Sei sicuro di voler archiviare la commessa?")) return;
 
-      alert("Commessa archiviata!");
-    } catch (error) {
-      console.error("Errore durante l'archiviazione:", error);
-      alert("Errore di connessione al server.");
+  try {
+    const resp = await fetch('http://192.168.1.250:3001/api/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folderPath: commessa.percorso,
+        reportData: { archiviata: true }
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      alert("Errore nell'aggiornamento del report: " + (err.message || resp.statusText));
+      return;
     }
+    // riflette subito nel client
+    setCommesse(prev => prev.map(c => c.nome === commessa.nome ? { ...c, archiviata: true } : c));
+    alert("Commessa archiviata!");
+  } catch (e) {
+    console.error("Errore durante l'archiviazione:", e);
+    alert("Errore di connessione al server.");
   }
 };
 
@@ -307,120 +326,136 @@ setReportDdtPath(data.settings.reportDdtPath || "");
       .catch(err => console.error("Errore leggendo le impostazioni dal server:", err));
     }, []);
 
+  // mantieni sempre aggiornati i due percorsi usati nel fallback
+  const latestPercorsoRef = useRef(percorsoCartella);
+  const latestCloneRef    = useRef(cartellaDaClonare);
+  useEffect(() => { latestPercorsoRef.current = percorsoCartella; }, [percorsoCartella]);
+  useEffect(() => { latestCloneRef.current = cartellaDaClonare; }, [cartellaDaClonare]);
+
   useEffect(() => {
-    let socket;
-    let reconnectAttempts = 0;
-    let reconnectTimer;
-    let firstPayloadTimer;
-    let receivedFirstPayload = false;
-    const MAX_DELAY = 30000; // 30s cap
+  // usa SEMPRE socketRef.current come singola sorgente di verità
+  let reconnectAttempts = 0;
+  let reconnectTimer;
+  let firstPayloadTimer;
+  let receivedFirstPayload = false;
+  const MAX_DELAY = 30000;
 
-    // Valida in modo semplice gli oggetti-commessa
-    const isValidCommessa = (obj) =>
-      obj && typeof obj === 'object' && typeof obj.nome === 'string' && obj.nome.trim().length > 0;
+  const isValidCommessa = (obj) =>
+    obj && typeof obj === 'object' && typeof obj.nome === 'string' && obj.nome.trim().length > 0;
 
-    const connect = () => {
+  const connect = () => {
+    let tried = 0;
+
+    const tryNext = () => {
+      if (tried >= candidates.length) {
+        const p = latestPercorsoRef.current;
+        const c = latestCloneRef.current;
+        if (p && c) fetchCommesse(p, c);
+        const delay = Math.min(3000 * Math.pow(2, reconnectAttempts++), MAX_DELAY);
+        console.warn(`[WS] nessun endpoint valido. Retry in ${Math.round(delay/1000)}s…`);
+        reconnectTimer = setTimeout(connect, delay);
+        return;
+      }
+
+      const url = candidates[tried++];
       try {
-        socket = new WebSocket(wsUrl);
-        socketRef.current = socket;
+        const s = new WebSocket(url);
+        socketRef.current = s;
 
-        // Fallback: se entro 5s non arriva nulla dal WS, prova una fetch HTTP
         clearTimeout(firstPayloadTimer);
         receivedFirstPayload = false;
         firstPayloadTimer = setTimeout(() => {
           if (!receivedFirstPayload) {
-            // Evita richieste inutili se mancano i parametri base
-            if (percorsoCartella && cartellaDaClonare) {
-              // console.log("[WS Fallback] Nessun payload entro 5s, fetchCommesse()");
-              fetchCommesse(percorsoCartella, cartellaDaClonare);
-            }
+            const p = latestPercorsoRef.current;
+            const c = latestCloneRef.current;
+            if (p && c) fetchCommesse(p, c);
           }
         }, 5000);
 
-        socket.onopen = () => {
-          reconnectAttempts = 0; // reset backoff
-          // console.log("WebSocket connesso per aggiornamenti commesse!");
+        s.onopen = () => {
+          reconnectAttempts = 0;
+          try {
+            const cur = localStorage.getItem("currentUser");
+            const email = cur ? JSON.parse(cur)?.email : null;
+            if (email) s.send(JSON.stringify({ type: 'auth', email }));
+          } catch {}
+          s.__keepalive = setInterval(() => {
+            if (s.readyState === 1) {
+              try { s.send(JSON.stringify({ type: 'ping' })); } catch {}
+            }
+          }, 25000);
         };
 
-        socket.onmessage = (event) => {
+        s.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-
-            // Caso 1: array di commesse
             if (Array.isArray(data)) {
               receivedFirstPayload = true;
               clearTimeout(firstPayloadTimer);
-
-              const pulite = data.filter(isValidCommessa);
-              if (pulite.length !== data.length) {
-                const scartate = data.filter(c => !isValidCommessa(c));
-                console.warn(
-                  `[WS] ${data.length - pulite.length} commesse scartate perché non valide:`,
-                  scartate.map(c => ({
-                    nome: c?.nome,
-                    percorso: c?.percorso,
-                    dataConsegna: c?.dataConsegna
-                  }))
-                );
-              }
-
-              setCommesse(pulite);
+              setCommesse(data.filter(isValidCommessa));
               return;
             }
-
-            // Caso 2: messaggi tipizzati
-            if (data && typeof data === 'object' && typeof data.type === 'string') {
+            if (data && typeof data === 'object') {
               if (data.type === 'activeUsers') {
-                const arr = Array.isArray(data.data) ? data.data : [];
-                setLoggedUsers(arr);
+                setLoggedUsers(Array.isArray(data.data) ? data.data : []);
                 return;
               }
-
               if (data.type === 'commesseUpdate') {
                 receivedFirstPayload = true;
                 clearTimeout(firstPayloadTimer);
                 const arr = Array.isArray(data.payload) ? data.payload : [];
-                const pulite = arr.filter(isValidCommessa);
-                setCommesse(pulite);
+                setCommesse(arr.filter(isValidCommessa));
                 return;
               }
             }
-
-            // Dato non riconosciuto: ignora in silenzio
-            // console.debug("WS payload ignorato:", data);
-          } catch (error) {
-            console.error("Errore nel parsing del messaggio WebSocket:", error);
+          } catch (e) {
+            console.error("WS parse error:", e);
           }
         };
 
-        socket.onerror = (err) => {
-          console.error("WebSocket errore:", err);
+        s.onerror = () => {
+          try { clearInterval(s.__keepalive); } catch {}
+          try { s.close(); } catch {}
+          tryNext();  // prova subito il prossimo endpoint
         };
 
-        socket.onclose = () => {
+        s.onclose = (ev) => {
           clearTimeout(firstPayloadTimer);
+          try { clearInterval(s.__keepalive); } catch {}
+
+          // se si è chiuso “subito”, prova il prossimo endpoint
+          if (tried < candidates.length) {
+            tryNext();
+            return;
+          }
           const delay = Math.min(3000 * Math.pow(2, reconnectAttempts++), MAX_DELAY);
-          console.log(`WebSocket chiuso. Riconnessione in ${Math.round(delay / 1000)}s...`);
+          console.warn(`[WS] chiuso (code=${ev.code}). Retry in ${Math.round(delay/1000)}s…`);
           reconnectTimer = setTimeout(connect, delay);
         };
       } catch (e) {
-        console.error("Errore inizializzazione WebSocket:", e);
-        reconnectTimer = setTimeout(connect, 3000);
+        console.error("Errore inizializzazione WebSocket su", url, e);
+        tryNext();
       }
     };
+
+    tryNext();
+  };
+
+
 
     connect();
 
-    return () => {
-      clearTimeout(firstPayloadTimer);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (socket) {
-        // evita di innescare il backoff quando chiudiamo volontariamente
-        socket.onclose = null;
-        socket.close();
-      }
-    };
-  }, []); // una sola connessione per tutto il ciclo di vita del componente
+      return () => {
+    clearTimeout(firstPayloadTimer);
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    const s = socketRef.current;
+    if (s) {
+      s.onclose = null;          // evita retry sullo smontaggio
+      try { clearInterval(s.__keepalive); } catch {}
+      try { s.close(); } catch {}
+    }
+  };
+}, [wsUrl]);
 
 
   useEffect(() => {

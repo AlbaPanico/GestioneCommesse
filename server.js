@@ -94,6 +94,50 @@ try {
 app.use(cors());
 app.use(express.json({ limit: '200mb' }));
 
+// ===================== Utility percorsi & FS sicuro (UNC Windows) =====================
+const pn = path.win32;
+
+// Normalizza un percorso UNC passando da URL encoded → stringa → percorso Windows coerente
+function normalizeUnc(input) {
+  if (!input) return null;
+  try {
+    // decode %20 ecc.
+    const decoded = decodeURIComponent(input);
+    // ripulisci eventuali slash “/” arrivate dal client
+    const winStyle = decoded.replace(/\//g, '\\');
+    // normalizza (mantiene \\server\share\...)
+    return pn.normalize(winStyle);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Controllo esistenza percorso: non lancia, ritorna boolean
+function pathExists(p) {
+  try {
+    return p && fs.existsSync(p);
+  } catch {
+    return false;
+  }
+}
+
+// Stat “safe”: ritorna null se fallisce
+function safeStat(p) {
+  try {
+    return fs.statSync(p);
+  } catch {
+    return null;
+  }
+}
+
+// Filtra commesse non valide (es. codiceCommessa null o percorsi mancanti)
+function isCommessaValida(c) {
+  // Accettiamo codiceCommessa null (placeholder), ma NON deve rompere il backend
+  // Qui decidiamo solo che l'oggetto sia almeno un oggetto e abbia un nome cartella
+  return !!c && typeof c === 'object';
+}
+
+
 // Utenti attivi (websocket presence)
 let activeUsers = [];
 const notifyActiveUsers = () => {
@@ -1181,15 +1225,41 @@ app.post('/api/monitor-folder', (req, res) => {
 });
 
 app.get('/api/commesse', (req, res) => {
-  const { percorsoCartella } = req.query;
-  if (!percorsoCartella) return res.status(400).json({ message: 'Percorso cartella non specificato.' });
+  const { percorsoCartella, cartellaDaClonare } = req.query;
 
-  const jsonFilePath = path.join(percorsoCartella, 'commesse.json');
-  if (!fs.existsSync(jsonFilePath)) fs.writeFileSync(jsonFilePath, JSON.stringify([], null, 2));
+  // Normalizza e valida percorsi UNC
+  const basePath  = normalizeUnc(percorsoCartella);
+  const clonePath = normalizeUnc(cartellaDaClonare);
+
+  if (!basePath) {
+    return res.status(400).json({ ok: false, message: 'Percorso cartella non specificato o non valido.' });
+  }
+  if (!pathExists(basePath)) {
+    return res.status(404).json({ ok: false, message: `Percorso non raggiungibile: ${basePath}` });
+  }
+  if (clonePath && !pathExists(clonePath)) {
+    return res.status(404).json({ ok: false, message: `cartellaDaClonare non trovata: ${clonePath}` });
+  }
+
+  // JSON path sicuro su Windows
+  const jsonFilePath = pn.join(basePath, 'commesse.json');
+
+  // 🔁 Prima sincronizza il file con lo stato reale delle cartelle
+  try {
+    refreshCommesseJSON(basePath);
+  } catch (err) {
+    console.warn('⚠️ refreshCommesseJSON fallito:', err);
+  }
+
+  // Assicurati che il file esista
+  if (!pathExists(jsonFilePath)) {
+    try { fs.writeFileSync(jsonFilePath, JSON.stringify([], null, 2)); }
+    catch (e) { return res.status(500).json({ ok: false, message: 'Impossibile creare commesse.json', error: String(e) }); }
+  }
 
   try {
-    const rawData = fs.readFileSync(jsonFilePath, 'utf8');
-    let commesse = rawData.trim() ? JSON.parse(rawData) : [];
+    const rawData = fs.readFileSync(jsonFilePath, 'utf8').trim();
+    let commesse = rawData ? JSON.parse(rawData) : [];
 
     // dedup per chiave "cartella"
     const uniqueMap = new Map();
@@ -1199,10 +1269,18 @@ app.get('/api/commesse', (req, res) => {
     });
     commesse = Array.from(uniqueMap.values());
 
-    // rispecchia cartelle presenti
-    const entries = fs.readdirSync(percorsoCartella, { withFileTypes: true });
+    // Rispecchia cartelle presenti, gestendo eventuali accessi negati
     const pattern = /^([^_]+)_([^_]+)_([^_]+)_([^_]+)$/;
-    const cartellePresenti = entries.filter(e => e.isDirectory() && pattern.test(e.name)).map(e => e.name.trim());
+    let entries = [];
+    try {
+      entries = fs.readdirSync(basePath, { withFileTypes: true });
+    } catch (err) {
+      return res.status(403).json({ ok: false, message: 'Accesso negato alla cartella base.', error: String(err) });
+    }
+
+    const cartellePresenti = entries
+      .filter(e => e && typeof e.isDirectory === 'function' && e.isDirectory() && pattern.test(e.name))
+      .map(e => e.name.trim());
 
     cartellePresenti.forEach(cartella => {
       const m = pattern.exec(cartella);
@@ -1241,8 +1319,17 @@ app.get('/api/commesse', (req, res) => {
     });
     commesse = Array.from(finalMap.values());
 
-    fs.writeFileSync(jsonFilePath, JSON.stringify(commesse, null, 2));
-    res.status(200).json({ commesse });
+    try {
+      const tmpFile = jsonFilePath + '.tmp';
+      const jsonString = JSON.stringify(commesse, null, 2);
+      fs.writeFileSync(tmpFile, jsonString);
+      fs.renameSync(tmpFile, jsonFilePath); // scrittura atomica
+    } catch (err) {
+      console.error('❌ Errore nel salvataggio sicuro di commesse.json:', err);
+      return res.status(500).json({ ok: false, message: 'Errore scrivendo commesse.json.', error: String(err) });
+    }
+
+    res.status(200).json({ ok: true, commesse });
   } catch (error) {
     console.error('❌ Errore nel recupero delle commesse:', error);
     res.status(500).json({ message: 'Errore nel recupero delle commesse.' });
@@ -1503,22 +1590,57 @@ app.post('/api/rinomina-cartella', (req, res) => {
 
 app.delete('/api/cancella-commessa/:percorsoCartella/:commessaNome', (req, res) => {
   const { percorsoCartella, commessaNome } = req.params;
-  if (!percorsoCartella || !commessaNome) return res.status(400).json({ message: 'Parametri mancanti per la cancellazione.' });
-  const jsonFilePath = path.join(percorsoCartella, 'commesse.json');
-  if (!fs.existsSync(jsonFilePath)) return res.status(404).json({ message: 'File commesse non trovato.' });
 
-  let commesse;
-  try { commesse = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8') || '[]'); } catch { return res.status(500).json({ message: 'Errore nella lettura del file JSON.' }); }
-  const index = commesse.findIndex(c => c.nome === commessaNome);
-  if (index === -1) return res.status(404).json({ message: 'Commessa non trovata.' });
+  if (!percorsoCartella || !commessaNome) {
+    return res.status(400).json({ ok: false, message: 'Parametri mancanti per la cancellazione.' });
+  }
 
-  const folderPath = commesse[index].percorso;
-  try { fs.rmSync(folderPath, { recursive: true, force: true }); } catch (error) { return res.status(500).json({ message: 'Errore cancellando la cartella.', error: error.toString() }); }
-  commesse.splice(index, 1);
-  try { fs.writeFileSync(jsonFilePath, JSON.stringify(commesse, null, 2)); }
-  catch (error) { return res.status(500).json({ message: 'Errore aggiornando il file JSON.', error: error.toString() }); }
-  res.status(200).json({ message: 'Commessa cancellata con successo.' });
+  const basePath = normalizeUnc(percorsoCartella);
+  if (!basePath || !pathExists(basePath)) {
+    return res.status(404).json({ ok: false, message: `Cartella di base non trovata: ${basePath}` });
+  }
+
+  const jsonFilePath = pn.join(basePath, 'commesse.json');
+  if (!pathExists(jsonFilePath)) {
+    return res.status(404).json({ ok: false, message: 'File commesse.json non trovato.' });
+  }
+
+  let commesse = [];
+  try {
+    const raw = fs.readFileSync(jsonFilePath, 'utf8').trim();
+    commesse = raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.warn('⚠️ commesse.json danneggiato, verrà rigenerato:', err);
+    commesse = [];
+  }
+
+  const idx = commesse.findIndex(c => c.nome === commessaNome);
+  if (idx === -1) {
+    return res.status(404).json({ ok: false, message: 'Commessa non trovata nel JSON.' });
+  }
+
+  const folderPath = normalizeUnc(commesse[idx].percorso);
+  if (folderPath && pathExists(folderPath)) {
+    try {
+      fs.rmSync(folderPath, { recursive: true, force: true });
+    } catch (err) {
+      console.error('❌ Errore rimuovendo cartella commessa:', err);
+    }
+  }
+
+  commesse.splice(idx, 1);
+
+  try {
+    const tmpFile = jsonFilePath + '.tmp';
+    fs.writeFileSync(tmpFile, JSON.stringify(commesse, null, 2));
+    fs.renameSync(tmpFile, jsonFilePath);
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: 'Errore aggiornando il file commesse.json.', error: String(err) });
+  }
+
+  return res.status(200).json({ ok: true, message: 'Commessa cancellata con successo e JSON aggiornato.' });
 });
+
 
 // report.json get/set
 app.get('/api/report', (req, res) => {
@@ -1587,52 +1709,69 @@ app.post('/api/report', (req, res) => {
 
 // Mantieni commesse.json allineato alle cartelle + report.json
 function refreshCommesseJSON(percorsoCartella) {
-  const jsonFilePath = path.join(percorsoCartella, 'commesse.json');
-  let jsonData = [];
-  if (fs.existsSync(jsonFilePath)) {
-    try { const rawData = fs.readFileSync(jsonFilePath, 'utf8'); jsonData = rawData.trim() ? JSON.parse(rawData) : []; }
-    catch (e) { console.error('❌ Errore nella lettura del file JSON:', e); }
-  }
-  const entries = fs.readdirSync(percorsoCartella, { withFileTypes: true });
-  const pattern = /^([^_]+)_([^_]+)_([^_]+)_([^_]+)$/;
-  const cartellePresenti = entries.filter(e => e.isDirectory() && pattern.test(e.name)).map(e => e.name.trim());
-
-  const mapping = {}; jsonData.forEach(r => { mapping[r.nome] = r; });
-
-  const nuovoArray = cartellePresenti.map(cartella => {
-    let commessa = mapping[cartella] ? { ...mapping[cartella] } : {
-      nome: cartella, cliente: '', brand: '', nomeProdotto: '', quantita: 0,
-      codiceProgetto: '', codiceCommessa: '', dataConsegna: '', presente: true,
-      percorso: path.join(percorsoCartella, cartella)
-    };
-    if (!commessa.brand || !commessa.nomeProdotto || !commessa.codiceProgetto || !commessa.codiceCommessa) {
-      const m = pattern.exec(cartella);
-      if (m) { commessa.brand = m[1]; commessa.nomeProdotto = m[2]; commessa.codiceProgetto = m[3]; commessa.codiceCommessa = m[4]; }
-    }
-    commessa.percorso = path.join(percorsoCartella, cartella);
-    commessa.presente = true;
-
-    const reportPath = path.join(percorsoCartella, cartella, 'report.json');
-    if (fs.existsSync(reportPath)) {
-      try {
-        const report = JSON.parse(fs.readFileSync(reportPath, 'utf8') || '{}');
-        commessa.inizioProduzione = report.inizioProduzione || '';
-        commessa.archiviata = report.archiviata === true || report.archiviata === 'true' || false;
-        commessa.fineProduzioneEffettiva = report.fineProduzioneEffettiva || null;
-      } catch (e) { console.error(`Errore nella lettura di report.json in ${cartella}:`, e); }
-    } else {
-      commessa.archiviata = !!commessa.archiviata;
-    }
-    return commessa;
-  });
-
   try {
-    const nuovoJson = JSON.stringify(nuovoArray, null, 2);
-    const nuovoHash = crypto.createHash('md5').update(nuovoJson).digest('hex');
-    if (nuovoHash === ultimoHashCommesse) return;
-    ultimoHashCommesse = nuovoHash;
-    fs.writeFileSync(jsonFilePath, nuovoJson);
-  } catch (e) { console.error('❌ Errore nell’aggiornamento del file JSON:', e); }
+    const basePath = normalizeUnc(percorsoCartella);
+    if (!basePath || !pathExists(basePath)) return;
+
+    const jsonFilePath = pn.join(basePath, 'commesse.json');
+    const pattern = /^([^_]+)_([^_]+)_([^_]+)_([^_]+)$/;
+    let jsonData = [];
+
+    // Lettura sicura del file JSON
+    try {
+      if (pathExists(jsonFilePath)) {
+        const raw = fs.readFileSync(jsonFilePath, 'utf8').trim();
+        jsonData = raw ? JSON.parse(raw) : [];
+      }
+    } catch (err) {
+      console.warn('⚠️ commesse.json danneggiato, verrà rigenerato:', err);
+      jsonData = [];
+    }
+
+    // Elenco delle cartelle realmente presenti
+    let entries = [];
+    try {
+      entries = fs.readdirSync(basePath, { withFileTypes: true });
+    } catch (err) {
+      console.warn('⚠️ Impossibile leggere la cartella base:', err);
+      return;
+    }
+
+    const cartellePresenti = entries
+      .filter(e => e.isDirectory() && pattern.test(e.name))
+      .map(e => e.name.trim());
+
+    // Mappa delle commesse già note
+    const mapping = new Map(jsonData.map(c => [c.nome, c]));
+
+    // Ricrea la lista completa
+    const nuovoArray = cartellePresenti.map(cartella => {
+      const commessa = mapping.get(cartella) || {};
+      const m = pattern.exec(cartella);
+      return {
+        nome: cartella,
+        cliente: commessa.cliente || '',
+        brand: m?.[1] || commessa.brand || '',
+        nomeProdotto: m?.[2] || commessa.nomeProdotto || '',
+        codiceProgetto: m?.[3] || commessa.codiceProgetto || '',
+        codiceCommessa: m?.[4] || commessa.codiceCommessa || '',
+        quantita: commessa.quantita || 0,
+        dataConsegna: commessa.dataConsegna || '',
+        percorso: pn.join(basePath, cartella),
+        presente: true,
+        archiviata: !!commessa.archiviata
+      };
+    });
+
+    // Scrittura atomica del file aggiornato
+    const tmpFile = jsonFilePath + '.tmp';
+    fs.writeFileSync(tmpFile, JSON.stringify(nuovoArray, null, 2));
+    fs.renameSync(tmpFile, jsonFilePath);
+
+    ultimoHashCommesse = crypto.createHash('md5').update(JSON.stringify(nuovoArray)).digest('hex');
+  } catch (e) {
+    console.error('❌ Errore nel refreshCommesseJSON:', e);
+  }
 }
 
 function monitorFile(filePath) {
