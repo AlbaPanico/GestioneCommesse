@@ -137,6 +137,33 @@ function isCommessaValida(c) {
   return !!c && typeof c === 'object';
 }
 
+function stripTrailingCommaBeforeClosingBracket(raw) {
+  if (!raw) return null;
+  const repaired = raw.replace(/,(\s*])/g, '$1');
+  return repaired !== raw ? repaired : null;
+}
+
+function parseCommesseJson(rawData, filePath) {
+  if (!rawData) return [];
+  try {
+    const parsed = JSON.parse(rawData);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn(`⚠️ JSON.parse fallito per ${filePath}:`, error?.message || String(error));
+    const repaired = stripTrailingCommaBeforeClosingBracket(rawData);
+    if (repaired) {
+      try {
+        console.warn(`ℹ️ Tentativo di riparazione trailing comma per ${filePath}`);
+        const parsed = JSON.parse(repaired);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (repairError) {
+        console.warn(`⚠️ Riparazione commesse.json non riuscita per ${filePath}:`, repairError?.message || String(repairError));
+      }
+    }
+    return [];
+  }
+}
+
 
 // Utenti attivi (websocket presence)
 let activeUsers = [];
@@ -1259,7 +1286,15 @@ app.get('/api/commesse', (req, res) => {
 
   try {
     const rawData = fs.readFileSync(jsonFilePath, 'utf8').trim();
-    let commesse = rawData ? JSON.parse(rawData) : [];
+    let commesse = [];
+    if (rawData) {
+      try {
+        commesse = JSON.parse(rawData);
+      } catch (err) {
+        console.warn('⚠️ commesse.json non leggibile, rigenero dalle cartelle presenti:', err);
+        commesse = [];
+      }
+    }
 
     // dedup per chiave "cartella"
     const uniqueMap = new Map();
