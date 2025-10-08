@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Search, Folder, Check, X } from 'lucide-react';
 import { Input } from './components/ui/input';
 
+// Consente SOLO alfanumerici e spazio (rimuove tutto il resto)
+const sanitizeNomeProdotto = (s) =>
+  String(s || '')
+    .replace(/[^A-Za-z0-9 ]/g, '') // tiene solo lettere, numeri e spazio
+    .replace(/\s+/g, ' ')          // comprime spazi multipli
+    .trim();
+
+
 // Triangolino blu per stato "acquisita"
 const BlueTriangle = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 16 16">
@@ -192,7 +200,7 @@ export default function CommesseGenerateSlide({
     return "undefined";
   };
 
- 
+
 
   // Filtro e ordinamento delle commesse
   const query = searchQuery.trim().toLowerCase();
@@ -310,9 +318,11 @@ export default function CommesseGenerateSlide({
       <div style={{ overflowY: "auto", maxHeight: "calc(100% - 150px)" }}>
         <ul>
           {visibleCommesse.map((commessa, index) => {
-            const productName = commessa.nomeProdotto || commessa.nome;
+            const rawProductName = commessa.nomeProdotto || commessa.nome;
+const productName = sanitizeNomeProdotto(rawProductName);
+
             const complete = isCommessaComplete(commessa);
-            <span>{getStatusDot(commessa)}</span>
+            
 
 
             const statusKey = getCommessaStatus(commessa);

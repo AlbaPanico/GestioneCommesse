@@ -19,6 +19,7 @@ const PROTEK_BTN_HOVER = {
 const PROTEK_CONSUMI_URL = "http://192.168.1.250:3000/";
 const PROTEK_STORICO_FALLBACK = "http://192.168.1.250:3000/storico";
 const PROTEK_STORICO_CONFIRM = "Vuoi accedere alla finestra Storico? pin 99999 puk 00000 9999 00000";
+const ALL_WEEKS_KEY = "__ALL__";
 
 
 /* ----------------- fetch robusto ----------------- */
@@ -61,6 +62,40 @@ function fmtDuration(start, end) {
   return `${hh}h ${mm}m`;
 }
 
+function toDate(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function getISOWeekYear(date) {
+  if (!(date instanceof Date)) return null;
+  const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - day);
+  const year = tmp.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const week = Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
+  return { week, year };
+}
+
+function buildWeekKey(ts) {
+  const date = toDate(ts);
+  if (!date) return "";
+  const info = getISOWeekYear(date);
+  if (!info) return "";
+  return `${info.year}-W${String(info.week).padStart(2, "0")}`;
+}
+
+function formatWeekLabel(key) {
+  if (!key) return "";
+  const [year, weekRaw] = key.split("-W");
+  const weekNum = Number.parseInt(weekRaw, 10);
+  if (!year || Number.isNaN(weekNum)) return key;
+  return `Settimana ${String(weekNum).padStart(2, "0")}/${year}`;
+}
+
 /* ----------------- helpers di normalizzazione ----------------- */
 const first = (...vals) => vals.find(v => v !== undefined && v !== null && v !== "") ?? "";
 const toISO = (d, t) => {
@@ -83,8 +118,10 @@ export default function ProtekPage({ onBack, server }) {
   const [stateFilter, setStateFilter] = useState("ALL");
   const [refreshedAt, setRefreshedAt] = useState("");
   const [meta, setMeta] = useState(null);
- const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
+  const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [availableWeeks, setAvailableWeeks] = useState([]);
+  const [selectedWeekKey, setSelectedWeekKey] = useState("");
 
   /* ----- normalizza da /programs ----- */
   const normalizeFromPrograms = (list = []) =>
@@ -207,10 +244,33 @@ const fetchSettings = async () => {
     load();
 };
 
-  useEffect(() => {
+ useEffect(() => {
     reloadAll();
     // eslint-disable-next-line react-hooks-exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const weeksSet = new Set();
+    rows.forEach((row) => {
+      const key = buildWeekKey(row.startTime || row.endTime);
+      if (key) weeksSet.add(key);
+    });
+    const sorted = Array.from(weeksSet).sort((a, b) => {
+      if (a === b) return 0;
+      const [aYear, aWeek] = a.split("-W");
+      const [bYear, bWeek] = b.split("-W");
+      const yearDiff = Number.parseInt(bYear, 10) - Number.parseInt(aYear, 10);
+      if (yearDiff !== 0) return yearDiff;
+      return Number.parseInt(bWeek, 10) - Number.parseInt(aWeek, 10);
+    });
+    setAvailableWeeks(sorted);
+    setSelectedWeekKey((prev) => {
+      if (!sorted.length) return ALL_WEEKS_KEY;
+      if (prev === ALL_WEEKS_KEY) return ALL_WEEKS_KEY;
+      if (prev && sorted.includes(prev)) return prev;
+      return sorted[0];
+    });
+  }, [rows]);
 
  const handleSettingsSaved = (payload) => {
     if (payload && typeof payload.storicoConsumiUrl === "string") {
@@ -227,6 +287,11 @@ const fetchSettings = async () => {
   const filtered = useMemo(() => {
   const q = search.trim().toLowerCase();
   return rows.filter((r) => {
+    const rowWeekKey = buildWeekKey(r.startTime || r.endTime);
+    const matchesWeek =
+      selectedWeekKey === ALL_WEEKS_KEY ||
+      (!selectedWeekKey && !availableWeeks.length) ||
+      rowWeekKey === selectedWeekKey;
     const hay = [
       r.code, r.description, r.customer,
       r.operators, r.machines,
@@ -238,9 +303,9 @@ const fetchSettings = async () => {
       stateFilter === "ALL" ||
       (r.latestState || "").toLowerCase() === stateFilter.toLowerCase();
 
-    return passesSearch && passesState;
+    return matchesWeek && passesSearch && passesState;
   });
-}, [rows, search, stateFilter]);
+}, [rows, search, stateFilter, selectedWeekKey, availableWeeks.length]);
 
 const storicoUrlClean = useMemo(() => (storicoConsumiUrl || "").replace(/"/g, "").trim(), [storicoConsumiUrl]);
   const storicoEffectiveUrl = storicoUrlClean || PROTEK_STORICO_FALLBACK;
@@ -328,7 +393,22 @@ const storicoUrlClean = useMemo(() => (storicoConsumiUrl || "").replace(/"/g, ""
           <span className="font-mono">{meta?.monitorPath || "—"}</span>
         </div>
         <div>• aggiornato: {refreshedAt ? new Date(refreshedAt).toLocaleString("it-IT") : "—"}</div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+          {availableWeeks.length > 0 && (
+            <select
+              className="border rounded-lg px-2 py-1 text-sm"
+              value={selectedWeekKey || (availableWeeks.length ? availableWeeks[0] : ALL_WEEKS_KEY)}
+              onChange={(e) => setSelectedWeekKey(e.target.value)}
+              title="Filtro settimana"
+            >
+              <option value={ALL_WEEKS_KEY}>Tutte le settimane</option>
+              {availableWeeks.map((key) => (
+                <option key={key} value={key}>
+                  {formatWeekLabel(key)}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             className="border rounded-lg px-2 py-1 text-sm"
             placeholder="Cerca per codice/descrizione/cliente"

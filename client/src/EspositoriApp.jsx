@@ -14,6 +14,20 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Portal } from '@radix-ui/react-portal';
 
 
+// --- Sanitizzatori unici ---
+const sanitizeAlnum = (s, { upper = true } = {}) =>
+  (upper ? String(s).toUpperCase() : String(s)).replace(/[^A-Z0-9]/gi, '');
+
+const sanitizeAlnumSpace = (s, { upper = false } = {}) =>
+  (upper ? String(s).toUpperCase() : String(s)).replace(/[^A-Za-z0-9 ]/g, '');
+
+const sanitizeDigits = (s) => String(s).replace(/\D+/g, '');
+// --- fine sanitizzatori ---
+
+
+
+
+
 
 
 // Helper per verificare se il form è valido (robusto agli undefined)
@@ -204,11 +218,18 @@ const wsUrl = candidates.join('|');
 
 // Aggiorna automaticamente il nome in base ai campi
 useEffect(() => {
-    if (modificaOpen) {
-      const newNome = `${brand}_${nomeProdotto}_${codiceProgetto}_${codiceCommessa}`;
-      setCommessaSelezionata(prev => prev ? { ...prev, nome: newNome } : null);
-    }
-  }, [brand, nomeProdotto, codiceProgetto, codiceCommessa, modificaOpen]);
+  if (modificaOpen) {
+    const p = (String(codiceProgetto || '').trim())
+      ? 'P' + String(codiceProgetto).trim().replace(/^[Pp]/, '')
+      : '';
+    const c = (String(codiceCommessa || '').trim()).toUpperCase().startsWith('C')
+      ? String(codiceCommessa).toUpperCase()
+      : (String(codiceCommessa || '').trim() ? 'C' + String(codiceCommessa).trim().toUpperCase() : '');
+
+    const newNome = `${brand}_${nomeProdotto}_${p}_${c}`;
+    setCommessaSelezionata(prev => (prev ? { ...prev, nome: newNome } : null));
+  }
+}, [brand, nomeProdotto, codiceProgetto, codiceCommessa, modificaOpen]);
 
   // Recupero degli utenti loggati
   useEffect(() => {
@@ -557,11 +578,12 @@ fineProduzioneEffettiva: c.fineProduzioneEffettiva || null,
       if (response.ok) {
         const commessa = await response.json();
         console.log("Dettagli ricevuti:", commessa);
-        setCliente(commessa.cliente || "");
+        setCliente(commessa.cliente ?? "");
         setBrand(commessa.brand || "");
         setNomeProdotto(commessa.nomeProdotto || "");
-        setQuantita(commessa.quantita || "");
-        setCodiceProgetto(commessa.codiceProgetto || "");
+        setQuantita(commessa.quantita ?? "");
+        setCodiceProgetto(String(commessa.codiceProgetto || "").replace(/^[Pp]/, '').replace(/\D+/g, ''));
+
         setCodiceCommessa(commessa.codiceCommessa || "");
         setDataConsegna(commessa.dataConsegna || "");
       } else {
@@ -572,17 +594,22 @@ fineProduzioneEffettiva: c.fineProduzioneEffettiva || null,
     }
   };
 
-  const handleEditCommessa = (commessa) => {
-    if (!commessa || !commessa.nome) {
-      console.log("Errore: Nome della commessa non disponibile!");
-      return;
-    }
-    console.log("Commessa selezionata:", commessa);
-    setOriginalNome(commessa.nome); // Salva il nome originale
-    setCommessaSelezionata(commessa);
-    setModificaOpen(true);
-    handleSelectCommessa(commessa.nome);
-  };
+  const handleEditCommessa = async (commessa) => {
+  if (!commessa || !commessa.nome) {
+    console.log("Errore: Nome della commessa non disponibile!");
+    return;
+  }
+  console.log("Commessa selezionata:", commessa);
+  setOriginalNome(commessa.nome); // Salva il nome originale
+  setCommessaSelezionata(commessa);
+
+  // 🔹 Attendi il caricamento dei dettagli
+  await handleSelectCommessa(commessa.nome);
+
+  // 🔹 Solo dopo apri il dialog
+  setModificaOpen(true);
+};
+
 
   const handleOpenSettings = () => {
     setModificaOpen(false);
@@ -623,7 +650,8 @@ fineProduzioneEffettiva: c.fineProduzioneEffettiva || null,
       });
   };
 
-  const handleDuplicateClick = () => {
+  // [GIALLA - riga precedente] ---------------------------------------------------
+const handleDuplicateClick = () => {
   const input = document.createElement("input");
   input.type = "file";
   input.directory = true;
@@ -636,22 +664,55 @@ fineProduzioneEffettiva: c.fineProduzioneEffettiva || null,
     if (!files.length) return;
 
     const folderName = files[0].webkitRelativePath.split("/")[0];
+    const folderPath = `${percorsoCartella.replace(/[\\/]+$/,'')}\\${folderName}`;
     setDuplicaDa(folderName);
 
+    // 1) Parser robusto direttamente dal nome: BRAND_PRODOTTO_Pxxx_Cyyy
+    const m = folderName.match(/^([^_]+)_([^_]+)_(P[^_]+)_(C[^_]+)$/i);
+    if (m) {
+  setBrand(m[1]);
+  setNomeProdotto(m[2]);
+  setCodiceProgetto(m[3].replace(/^[Pp]/, '').replace(/\D+/g, '')); // solo numeri
+  setCodiceCommessa(m[4].toUpperCase());
+} else {
+  const parts = folderName.split('_');
+  setBrand(parts[0] || '');
+  setNomeProdotto(parts[1] || '');
+  setCodiceProgetto(String(parts[2] || '').replace(/^[Pp]/, '').replace(/\D+/g, '')); // solo numeri
+  setCodiceCommessa((parts[3] || '').toUpperCase());
+}
+
+
     try {
-      const response = await fetch(`http://192.168.1.250:3001/api/commessa-dettagli?percorsoCartella=${encodeURIComponent(percorsoCartella)}&commessaNome=${encodeURIComponent(folderName)}`);
-      if (response.ok) {
-        const commessa = await response.json();
-        setCliente(commessa.cliente || "");
-        setBrand(commessa.brand || "");
-        setNomeProdotto(commessa.nomeProdotto || "");
-        setCodiceProgetto(commessa.codiceProgetto || "");
-        setCodiceCommessa("");
-        setDataConsegna("");
+      // 2) Dettagli da commesse.json (se esistono)
+      const detRes = await fetch(
+        `http://192.168.1.250:3001/api/commessa-dettagli?percorsoCartella=${encodeURIComponent(percorsoCartella)}&commessaNome=${encodeURIComponent(folderName)}`
+      );
+      if (detRes.ok) {
+        const commessa = await detRes.json();
+        setCliente(prev => prev || commessa.cliente || ""); // non sovrascrivo se già impostato
+        setBrand(prev => prev || commessa.brand || "");
+        setNomeProdotto(prev => prev || commessa.nomeProdotto || "");
+        setCodiceProgetto(prev => prev || String(commessa.codiceProgetto || "").replace(/^[Pp]/, '').replace(/\D+/g, ''));
+
+        setCodiceCommessa(prev => prev || commessa.codiceCommessa || "");
+        setDataConsegna("");  // lasciamo vuoto per nuova pianificazione
         setQuantita("");
-      } else {
-        alert("Errore nel recupero dei dettagli della commessa.");
       }
+
+      // 3) Cliente dal report.json della sorgente (fallback affidabile)
+      try {
+        const repRes = await fetch(
+          `http://192.168.1.250:3001/api/report?folderPath=${encodeURIComponent(folderPath)}`
+        );
+        if (repRes.ok) {
+          const { report } = await repRes.json();
+          if (report && report.cliente) {
+            setCliente(c => c || String(report.cliente));
+          }
+        }
+      } catch {}
+
     } catch (err) {
       console.error("Errore selezionando la cartella:", err);
       alert("Errore selezionando la cartella: " + err);
@@ -659,8 +720,10 @@ fineProduzioneEffettiva: c.fineProduzioneEffettiva || null,
   });
 
   input.click();
-document.body.removeChild(input);
+  document.body.removeChild(input);
 };
+// [GIALLA - riga successiva] ---------------------------------------------------
+
 
 const resetForm = () => {
   setCliente('');
@@ -798,19 +861,25 @@ const handleSaveEditCommessa = async () => {
     return;
   }
   
-  const normalizedCodiceProgetto = codiceProgetto.startsWith("P") ? codiceProgetto : "P" + codiceProgetto;
-  const normalizedCodiceCommessa = codiceCommessa.startsWith("C") ? codiceCommessa : "C" + codiceCommessa;
-  
-  const updatedData = {
-    nome: commessaSelezionata.nome,
-    cliente: cliente || commessaSelezionata.cliente,
-    brand: brand || commessaSelezionata.brand,
-    nomeProdotto: nomeProdotto || commessaSelezionata.nomeProdotto,
-    quantita: quantita,
-    codiceProgetto: codiceProgetto || commessaSelezionata.codiceProgetto,
-    codiceCommessa: codiceCommessa || commessaSelezionata.codiceCommessa,
-    dataConsegna: dataConsegna || commessaSelezionata.dataConsegna,
-  };
+  const normalizedCodiceProgetto = String(codiceProgetto || '')
+  .replace(/^[Pp]/, '')            // tieni solo le cifre inserite
+  .replace(/\D+/g, '');
+const normalizedCodiceCommessa = String(codiceCommessa || '').toUpperCase();
+
+const updatedData = {
+  nome: commessaSelezionata.nome,
+  cliente: cliente || commessaSelezionata.cliente,
+  brand: brand || commessaSelezionata.brand,
+  nomeProdotto: nomeProdotto || commessaSelezionata.nomeProdotto,
+  quantita: quantita,
+  // INVIA SEMPRE normalizzato con P/C
+  codiceProgetto: normalizedCodiceProgetto ? ('P' + normalizedCodiceProgetto) : (commessaSelezionata.codiceProgetto || ''),
+  codiceCommessa: normalizedCodiceCommessa
+    ? (normalizedCodiceCommessa.startsWith('C') ? normalizedCodiceCommessa : 'C' + normalizedCodiceCommessa)
+    : (commessaSelezionata.codiceCommessa || ''),
+  dataConsegna: dataConsegna || commessaSelezionata.dataConsegna,
+};
+
   
   try {
     const response = await fetch('http://192.168.1.250:3001/api/modifica-commessa', {
@@ -1084,22 +1153,54 @@ ${linkCartella}
   <Button type="button" onClick={handleDuplicateClick} className="bg-blue-500 text-white">
     Duplica da commessa
   </Button>
-  <div>
+    <div>
     <label className="block mb-1 font-semibold text-white" htmlFor="cliente">Cliente</label>
-    <input id="cliente" type="text" className="w-full rounded border px-2 py-1" value={cliente} onChange={(e) => setCliente(e.target.value.toUpperCase())} />
+    <input
+      id="cliente"
+      type="text"
+      className="w-full rounded border px-2 py-1"
+      value={cliente}
+      onChange={(e) => setCliente(sanitizeAlnum(e.target.value, { upper: true }))}
+    />
   </div>
-  <div>
+
+    <div>
     <label className="block mb-1 font-semibold text-blue-500" htmlFor="brand">Brand</label>
-    <input id="brand" type="text" className="w-full rounded border px-2 py-1" value={brand} onChange={(e) => setBrand(e.target.value.toUpperCase())} />
+    <input
+      id="brand"
+      type="text"
+      className="w-full rounded border px-2 py-1"
+      value={brand}
+      onChange={(e) => setBrand(sanitizeAlnum(e.target.value, { upper: true }))}
+    />
   </div>
-  <div>
+
+    <div>
     <label className="block mb-1 font-semibold text-blue-500" htmlFor="nomeProdotto">Nome Prodotto</label>
-    <input id="nomeProdotto" type="text" className="w-full rounded border px-2 py-1" value={nomeProdotto} onChange={(e) => setNomeProdotto(e.target.value)} required />
+    <input
+  id="nomeProdotto"
+  type="text"
+  className="w-full rounded border px-2 py-1"
+  value={nomeProdotto}
+  onChange={(e) => setNomeProdotto(sanitizeAlnumSpace(e.target.value, { upper: false }))}
+  required
+/>
+
   </div>
-  <div>
+
+    <div>
     <label className="block mb-1 font-semibold text-green-500" htmlFor="codiceProgetto">Codice Progetto</label>
-    <input id="codiceProgetto" type="text" className="w-full rounded border px-2 py-1 bg-white" value={codiceProgetto} onChange={(e) => setCodiceProgetto(e.target.value)} />
+    <input
+      id="codiceProgetto"
+      type="text"
+      className="w-full rounded border px-2 py-1 bg-white"
+      value={codiceProgetto}
+      onChange={(e) => setCodiceProgetto(sanitizeDigits(e.target.value))}
+      inputMode="numeric"
+      pattern="[0-9]*"
+    />
   </div>
+
   <div>
     <label className="block mb-1 font-semibold text-green-500" htmlFor="codiceCommessa">Codice Commessa</label>
     <input id="codiceCommessa" type="text" className="w-full rounded border px-2 py-1 bg-white" value={codiceCommessa} onChange={(e) => setCodiceCommessa(e.target.value)} />
@@ -1163,11 +1264,12 @@ ${linkCartella}
                     <div>
                       <label className="block mb-1 font-semibold text-white">Nome Prodotto</label>
                       <Input
-                        type="text"
-                        value={nomeProdotto || ""}
-                        onChange={(e) => setNomeProdotto(e.target.value)}
-                        className="bg-white rounded border px-2 py-1"
-                      />
+  type="text"
+  value={nomeProdotto || ""}
+  onChange={(e) => setNomeProdotto(sanitizeAlnumSpace(e.target.value, { upper: false }))}
+  className="bg-white rounded border px-2 py-1"
+/>
+
                     </div>
                     <div>
                       <label style={{ color: "white" }} className="block mb-1 font-semibold">Codice Progetto</label>
@@ -1175,7 +1277,8 @@ ${linkCartella}
                         <Input
                           type="text"
                           value={codiceProgetto || ""}
-                          onChange={(e) => setCodiceProgetto(e.target.value)}
+                          onChange={(e) => setCodiceProgetto(sanitizeDigits(e.target.value))}
+
                           className="bg-white rounded border px-2 py-1 flex-1"
                         />
                         <Button
@@ -1208,11 +1311,12 @@ ${linkCartella}
                     <div>
                       <label style={{ color: "white" }} className="block mb-1 font-semibold">Quantità</label>
                       <Input
-                        type="number"
-                        value={quantita || ""}
-                        onChange={(e) => setQuantita(e.target.value)}
-                        className="bg-white"
-                      />
+  type="number"
+  value={quantita ?? ""}
+  onChange={(e) => setQuantita(e.target.value)}
+  className="bg-white"
+/>
+
                     </div>
                     <div>
                       <label style={{ color: "white" }} className="block mb-1 font-semibold">Data Consegna</label>

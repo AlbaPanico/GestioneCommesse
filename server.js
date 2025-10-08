@@ -1317,28 +1317,80 @@ app.get('/api/commesse', (req, res) => {
       .filter(e => e && typeof e.isDirectory === 'function' && e.isDirectory() && pattern.test(e.name))
       .map(e => e.name.trim());
 
-    cartellePresenti.forEach(cartella => {
-      const m = pattern.exec(cartella);
-      if (!m) return;
-      const [_, brandVal, nomeProdottoVal, codiceProgettoVal, codiceCommessaVal] = m;
-      const uniqueKey = `${brandVal}_${nomeProdottoVal}_${codiceProgettoVal}_${codiceCommessaVal}`;
-      const found = commesse.find(c =>
-        `${(c.brand||'').trim()}_${(c.nomeProdotto||'').trim()}_${(c.codiceProgetto||'').trim()}_${(c.codiceCommessa||'').trim()}` === uniqueKey
-      );
-      if (found) found.presente = true;
-      else commesse.push({
-        nome: cartella,
-        cliente: '',
-        brand: brandVal,
-        nomeProdotto: nomeProdottoVal,
-        quantita: 0,
-        codiceProgetto: codiceProgettoVal,
-        codiceCommessa: codiceCommessaVal,
-        dataConsegna: '',
-        presente: true,
-        percorso: path.join(percorsoCartella, cartella)
-      });
-    });
+    // [GIALLA - riga precedente] ---------------------------------------------------
+cartellePresenti.forEach(cartella => {
+  const m = pattern.exec(cartella);
+  if (!m) return;
+  const [_, brandVal, nomeProdottoVal, codiceProgettoVal, codiceCommessaVal] = m;
+  const uniqueKey = `${brandVal}_${nomeProdottoVal}_${codiceProgettoVal}_${codiceCommessaVal}`;
+  const found = commesse.find(c =>
+    `${(c.brand||'').trim()}_${(c.nomeProdotto||'').trim()}_${(c.codiceProgetto||'').trim()}_${(c.codiceCommessa||'').trim()}` === uniqueKey
+  );
+
+  // 🔹 leggo SEMPRE il report.json della cartella (per merge campi mancanti)
+  let rep = {};
+  try {
+    const rp = path.join(percorsoCartella, cartella, 'report.json');
+    if (fs.existsSync(rp)) {
+      const raw = fs.readFileSync(rp, 'utf8');
+      rep = raw ? JSON.parse(raw) : {};
+    }
+  } catch {}
+
+  if (found) {
+    // era già in JSON → segno presente e COMPLETO i campi mancanti
+    found.presente = true;
+
+    // Cliente
+    found.cliente = (found.cliente ?? rep.cliente ?? '').toString().trim();
+
+    // Quantità (normalizzata a numero); opzionale alias "pezzi"
+    found.quantita = Number.isFinite(Number(found.quantita))
+      ? Number(found.quantita)
+      : (Number.isFinite(Number(rep.quantita)) ? Number(rep.quantita) : 0);
+
+    // Se nel front-end usi anche "pezzi", lo allineo alla quantità
+    if (!Number.isFinite(Number(found.pezzi))) {
+      found.pezzi = Number.isFinite(Number(rep.quantita)) ? Number(rep.quantita) : (Number.isFinite(Number(found.quantita)) ? Number(found.quantita) : 0);
+    }
+
+    // Data consegna
+    found.dataConsegna = (found.dataConsegna || rep.dataConsegna || '').toString().trim();
+
+    // Percorso (di sicurezza)
+    if (!found.percorso) found.percorso = path.join(percorsoCartella, cartella);
+  } else {
+    // non era in JSON → creo voce nuova già completa
+    const q = Number.isFinite(Number(rep.quantita)) ? Number(rep.quantita) : 0;
+    // normalizzatore numerico: accetta "5 pz", "12,0", ecc.
+const asNumeroPulito = (v) => {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const s = String(v ?? '').replace(',', '.');
+  const m = s.match(/\d+/);
+  return m ? Number(m[0]) : 0;
+};
+
+const qNorm = asNumeroPulito(rep?.quantita ?? 0);
+const pzNorm = asNumeroPulito(rep?.pezzi ?? qNorm);
+
+commesse.push({
+  nome: cartella,
+  cliente: (rep.cliente ?? '').toString(),
+  brand: brandVal,
+  nomeProdotto: nomeProdottoVal,
+  quantita: qNorm,
+  pezzi: pzNorm, // 🆕
+  codiceProgetto: codiceProgettoVal,
+  codiceCommessa: codiceCommessaVal,
+  dataConsegna: (rep.dataConsegna ?? '').toString(),
+  presente: true,
+  percorso: path.join(percorsoCartella, cartella)
+});
+
+  }
+});
+
+
 
     // merge archiviata/presente
     const finalMap = new Map();
@@ -1373,16 +1425,62 @@ app.get('/api/commesse', (req, res) => {
 
 app.get('/api/commessa-dettagli', (req, res) => {
   const { percorsoCartella, commessaNome } = req.query;
-  if (!percorsoCartella || !commessaNome) return res.status(400).json({ message: 'Parametri mancanti.' });
+  if (!percorsoCartella || !commessaNome) {
+    return res.status(400).json({ message: 'Parametri mancanti.' });
+  }
+
   const jsonFilePath = path.join(percorsoCartella, 'commesse.json');
-  if (!fs.existsSync(jsonFilePath)) return res.status(404).json({ message: 'File JSON non trovato.' });
+  if (!fs.existsSync(jsonFilePath)) {
+    return res.status(404).json({ message: 'File JSON non trovato.' });
+  }
+
   try {
     const commesse = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8') || '[]');
-    const commessa = commesse.find(c => `${c.brand}_${c.nomeProdotto}_${c.codiceProgetto}_${c.codiceCommessa}` === commessaNome);
-    if (!commessa) return res.status(404).json({ message: 'Commessa non trovata.' });
-    res.status(200).json(commessa);
+    const commessa = commesse.find(
+      c => `${c.brand}_${c.nomeProdotto}_${c.codiceProgetto}_${c.codiceCommessa}` === commessaNome
+    );
+    if (!commessa) {
+      return res.status(404).json({ message: 'Commessa non trovata.' });
+    }
+
+    // Percorso cartella della commessa
+    const folderPath =
+      commessa.percorso ||
+      path.join(percorsoCartella, commessa.nome || commessaNome);
+
+    // Leggi report.json (se esiste) per completare i campi mancanti
+    let rep = {};
+    try {
+      const repPath = path.join(folderPath, 'report.json');
+      if (fs.existsSync(repPath)) {
+        const raw = fs.readFileSync(repPath, 'utf8');
+        rep = raw ? JSON.parse(raw) : {};
+      }
+    } catch {}
+
+    // Fallback intelligenti: preferisci quello in commesse.json,
+    // altrimenti prendi da report.json, altrimenti default
+    const merged = {
+      ...commessa,
+
+      cliente: (commessa.cliente ?? rep.cliente ?? '').toString(),
+
+      brand: commessa.brand || rep.brand || '',
+      nomeProdotto: commessa.nomeProdotto || rep.nomeProdotto || '',
+
+      codiceProgetto: commessa.codiceProgetto || rep.codiceProgetto || '',
+      codiceCommessa: commessa.codiceCommessa || rep.codiceCommessa || '',
+
+      quantita: Number.isFinite(Number(commessa.quantita))
+        ? Number(commessa.quantita)
+        : (Number.isFinite(Number(rep.quantita)) ? Number(rep.quantita) : 0),
+
+      dataConsegna: commessa.dataConsegna || rep.dataConsegna || ''
+    };
+
+    return res.status(200).json(merged);
   } catch (error) {
-    res.status(500).json({ message: 'Errore nel recupero dei dettagli della commessa.' });
+    return res.status(500).json({ message: 'Errore nel recupero dei dettagli della commessa.' });
   }
 });
 
@@ -1449,17 +1547,40 @@ app.post('/api/genera-commessa', (req, res) => {
     return res.status(400).json({ message: 'Manca la sorgente: duplicaDa oppure cartellaDaClonare.' });
   }
 
-  // Normalizza: aggiunge P/C solo se presente un codice; se uno è assente resta vuoto
-  const ensureCode = (val, letter) => {
-    const v = String(val || '').trim().toUpperCase();
-    if (!v) return '';
-    return v.startsWith(letter) ? v : (letter + v);
-  };
-  const effP = ensureCode(codiceProgetto, 'P');
+  // 🔧 Ricavo prima codiceCommessaEff dai fallback (nome sorgente o report.json)
+let codiceCommessaEff = (codiceCommessa || '').trim();
+try {
+  if (!codiceCommessaEff) {
+    const baseSrc = path.basename(sourceDir);
+    // accetta anche lettere dopo i numeri (es. C1234A, C1234-11, ecc.)
+    const mC = baseSrc.match(/_C([A-Za-z0-9\-]+)$/);
+    if (mC) codiceCommessaEff = 'C' + mC[1];
 
-  // 🟨 Richiesta: se l'utente non inserisce C, usa comunque "C" come segnaposto
-  let effC = ensureCode(codiceCommessa, 'C');
-  if (!effC) effC = 'C';
+    if (!codiceCommessaEff && fs.existsSync(path.join(sourceDir, 'report.json'))) {
+      const rep = JSON.parse(fs.readFileSync(path.join(sourceDir, 'report.json'), 'utf8') || '{}');
+      if (rep && rep.codiceCommessa) codiceCommessaEff = String(rep.codiceCommessa).trim();
+    }
+  }
+} catch {
+  // ignoro errori, manterrà stringa vuota
+}
+
+// 🔧 Solo dopo normalizzo i codici finali P/C
+const ensureCode = (val, letter) => {
+  const v = String(val || '').trim().toUpperCase();
+  if (!v) return '';
+  return v.startsWith(letter) ? v : (letter + v);
+};
+
+// 👉 La P deve esserci SEMPRE, anche se non compilata
+const effP = ensureCode(codiceProgetto, 'P') || 'P';
+
+// 👉 La C deve esserci SEMPRE; se manca tutto, resta 'C'
+let effC = ensureCode(codiceCommessaEff || codiceCommessa, 'C');
+if (!effC) effC = 'C';
+
+
+
 
   const quantitaFinale = quantita || 0;
   const dataConsegnaFinale = dataConsegna || '';
@@ -1508,6 +1629,21 @@ app.post('/api/genera-commessa', (req, res) => {
     // Non bloccare se fallisce la validazione del nome sorgente: gestiamo sopra i casi veri
   }
 
+  // [GIALLA - riga precedente] -------------------------------------------------
+  // Fallback: se "cliente" non è stato passato, recuperalo dal report.json della sorgente
+  let clienteEff = (cliente || '').trim();
+  try {
+    const srcReport = path.join(sourceDir, 'report.json');
+    if (!clienteEff && fs.existsSync(srcReport)) {
+      const rep = JSON.parse(fs.readFileSync(srcReport, 'utf8') || '{}');
+      if (rep && rep.cliente) clienteEff = String(rep.cliente).trim();
+    }
+  } catch {}
+
+  
+
+
+
   try {
     fs.mkdirSync(folderPath, { recursive: true });
     copyDirectory(sourceDir, folderPath); // (già aggiornata per NON copiare MATERIALI e report.pdf)
@@ -1524,7 +1660,9 @@ app.post('/api/genera-commessa', (req, res) => {
 
   const nuovaCommessa = {
     nome: folderName,
-    cliente,
+    // [GIALLA - riga precedente] ----------------------------------------------
+    cliente: clienteEff,
+    // [GIALLA - riga successiva] ----------------------------------------------
     brand,
     nomeProdotto,
     quantita: quantitaFinale,
@@ -1545,7 +1683,9 @@ app.post('/api/genera-commessa', (req, res) => {
 
   // report.json
   const report = {
-    cliente, brand, nomeProdotto,
+    // [GIALLA - riga precedente] ----------------------------------------------
+    cliente: clienteEff, brand, nomeProdotto,
+    // [GIALLA - riga successiva] ----------------------------------------------
     quantita: quantitaFinale,
     codiceProgetto: effP,
     codiceCommessa: effC,
@@ -1624,7 +1764,10 @@ app.post('/api/rinomina-cartella', (req, res) => {
 });
 
 app.delete('/api/cancella-commessa/:percorsoCartella/:commessaNome', (req, res) => {
-  const { percorsoCartella, commessaNome } = req.params;
+  // decodifica sicura (evita %5C ecc.)
+  let { percorsoCartella, commessaNome } = req.params;
+  try { percorsoCartella = decodeURIComponent(percorsoCartella); } catch {}
+  try { commessaNome     = decodeURIComponent(commessaNome); } catch {}
 
   if (!percorsoCartella || !commessaNome) {
     return res.status(400).json({ ok: false, message: 'Parametri mancanti per la cancellazione.' });
@@ -1640,6 +1783,26 @@ app.delete('/api/cancella-commessa/:percorsoCartella/:commessaNome', (req, res) 
     return res.status(404).json({ ok: false, message: 'File commesse.json non trovato.' });
   }
 
+  // ── helper: garantisce i token P/C presenti (anche se vuoti) ───────────────
+  const ensureToken = (val, letter) => {
+    const v = String(val || '').trim().toUpperCase();
+    if (!v) return letter;                 // placeholder (P oppure C)
+    return v.startsWith(letter) ? v : (letter + v);
+  };
+  const canonicalName = (name) => {
+    // atteso: BRAND_PRODOTTO_Pxxx_Cyyy (ma il front-end potrebbe passare senza P)
+    const parts = String(name || '').split('_');
+    // pad a 4 pezzi
+    while (parts.length < 4) parts.push('');
+    // normalizza i token 3 e 4
+    parts[2] = ensureToken(parts[2], 'P');
+    parts[3] = ensureToken(parts[3], 'C');
+    return parts.slice(0,4).join('_');
+  };
+
+  const commessaNameCanonical = canonicalName(commessaNome);
+
+  // ── carica JSON
   let commesse = [];
   try {
     const raw = fs.readFileSync(jsonFilePath, 'utf8').trim();
@@ -1649,22 +1812,45 @@ app.delete('/api/cancella-commessa/:percorsoCartella/:commessaNome', (req, res) 
     commesse = [];
   }
 
-  const idx = commesse.findIndex(c => c.nome === commessaNome);
+  // ── individua la riga da cancellare tollerando nomi senza "P"
+  const canonOfRow = (c) => {
+    // preferisci i 4 campi singoli; fallback a c.nome
+    const brand  = (c.brand || '').trim();
+    const prod   = (c.nomeProdotto || '').trim();
+    const p      = ensureToken((c.codiceProgetto || '').trim(), 'P');
+    const cc     = ensureToken((c.codiceCommessa || '').trim(), 'C');
+    const joined = [brand, prod, p, cc].join('_');
+    return canonicalName(c.nome || joined);
+  };
+
+  let idx = commesse.findIndex(c => canonOfRow(c) === commessaNameCanonical);
+
+  // ultimo tentativo: confronto diretto col nome passato (per retrocompatibilità)
+  if (idx === -1) {
+    idx = commesse.findIndex(c => (c.nome || '').trim() === commessaNome.trim());
+  }
+
   if (idx === -1) {
     return res.status(404).json({ ok: false, message: 'Commessa non trovata nel JSON.' });
   }
 
-  const folderPath = normalizeUnc(commesse[idx].percorso);
+  // ── calcola il percorso cartella da eliminare
+  const row = commesse[idx];
+  const folderPath =
+    normalizeUnc(row.percorso) ||
+    pn.join(basePath, canonOfRow(row)); // fallback se manca "percorso" nel JSON
+
   if (folderPath && pathExists(folderPath)) {
     try {
       fs.rmSync(folderPath, { recursive: true, force: true });
     } catch (err) {
       console.error('❌ Errore rimuovendo cartella commessa:', err);
+      // non bloccare: continuiamo comunque ad aggiornare il JSON
     }
   }
 
+  // ── rimuovi dal JSON e salva in modo atomico
   commesse.splice(idx, 1);
-
   try {
     const tmpFile = jsonFilePath + '.tmp';
     fs.writeFileSync(tmpFile, JSON.stringify(commesse, null, 2));
@@ -1673,7 +1859,11 @@ app.delete('/api/cancella-commessa/:percorsoCartella/:commessaNome', (req, res) 
     return res.status(500).json({ ok: false, message: 'Errore aggiornando il file commesse.json.', error: String(err) });
   }
 
-  return res.status(200).json({ ok: true, message: 'Commessa cancellata con successo e JSON aggiornato.' });
+  return res.status(200).json({
+    ok: true,
+    message: 'Commessa cancellata con successo e JSON aggiornato.',
+    canonicalHandled: commessaNameCanonical
+  });
 });
 
 
@@ -1783,19 +1973,59 @@ function refreshCommesseJSON(percorsoCartella) {
     const nuovoArray = cartellePresenti.map(cartella => {
       const commessa = mapping.get(cartella) || {};
       const m = pattern.exec(cartella);
-      return {
-        nome: cartella,
-        cliente: commessa.cliente || '',
-        brand: m?.[1] || commessa.brand || '',
-        nomeProdotto: m?.[2] || commessa.nomeProdotto || '',
-        codiceProgetto: m?.[3] || commessa.codiceProgetto || '',
-        codiceCommessa: m?.[4] || commessa.codiceCommessa || '',
-        quantita: commessa.quantita || 0,
-        dataConsegna: commessa.dataConsegna || '',
-        percorso: pn.join(basePath, cartella),
-        presente: true,
-        archiviata: !!commessa.archiviata
-      };
+
+      // [GIALLA - riga precedente] --------------------------------------------
+      const reportPath = pn.join(basePath, cartella, 'report.json');
+      let rep = {};
+      try { if (pathExists(reportPath)) { const raw = fs.readFileSync(reportPath, 'utf8'); rep = raw ? JSON.parse(raw) : {}; } } catch {}
+      // [GIALLA - riga successiva] --------------------------------------------
+
+      // Normalizzo i campi di stato per i bollini (preferisco report.json se presente)
+      const dataConsegna   = (commessa.dataConsegna || rep.dataConsegna || '').trim();
+      const inizioProd     = rep.inizioProduzione || commessa.inizioProduzione || '';
+      const fineProdEff    = rep.fineProduzioneEffettiva || commessa.fineProduzioneEffettiva || '';
+      const archiviataFlag = (commessa.archiviata === true || commessa.archiviata === 'true' ||
+                              rep.archiviata === true     || rep.archiviata === 'true');
+
+      // 🔧 Pulizia numerica coerente: accetta numeri o stringhe tipo "5 pz", "12,0"
+const asNumeroPulito = (v) => {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const s = String(v ?? '').replace(',', '.');
+  // prendo il primo intero (es. "12.0 pz" -> 12, "5 pz" -> 5)
+  const m = s.match(/\d+/);
+  return m ? Number(m[0]) : 0;
+};
+
+// Quantità: priorità report.json, poi commesse.json
+const quantitaNorm = asNumeroPulito(rep?.quantita ?? commessa.quantita ?? 0);
+
+// Pezzi: allineato alla quantità (se il front-end usa la colonna "pezzi")
+const pezziNorm = asNumeroPulito(rep?.pezzi ?? quantitaNorm);
+
+return {
+  nome: cartella,
+  // cliente: preferisco il report.json (se c’è), poi il vecchio valore
+  cliente: (rep?.cliente ?? commessa.cliente ?? '').toString().trim(),
+  brand: m?.[1] || commessa.brand || '',
+  nomeProdotto: m?.[2] || commessa.nomeProdotto || '',
+  codiceProgetto: m?.[3] || commessa.codiceProgetto || '',
+  codiceCommessa: m?.[4] || commessa.codiceCommessa || '',
+
+  // quantità + pezzi normalizzati e coerenti
+  quantita: quantitaNorm,
+  pezzi: pezziNorm,
+
+  dataConsegna: (dataConsegna ?? '').toString().trim(),
+  inizioProduzione: inizioProd,
+  fineProduzioneEffettiva: fineProdEff,
+
+  percorso: pn.join(basePath, cartella),
+  presente: true,
+  archiviata: !!archiviataFlag
+};
+
+
+
     });
 
     // Scrittura atomica del file aggiornato
