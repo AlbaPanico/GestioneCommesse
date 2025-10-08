@@ -20,6 +20,7 @@ const PROTEK_CONSUMI_URL = "http://192.168.1.250:3000/";
 const PROTEK_STORICO_FALLBACK = "http://192.168.1.250:3000/storico";
 const PROTEK_STORICO_CONFIRM = "Vuoi accedere alla finestra Storico? pin 99999 puk 00000 9999 00000";
 const ALL_WEEKS_KEY = "__ALL__";
+const NO_WEEK_KEY = "__NO_WEEK__";
 
 
 /* ----------------- fetch robusto ----------------- */
@@ -121,7 +122,8 @@ export default function ProtekPage({ onBack, server }) {
   const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [availableWeeks, setAvailableWeeks] = useState([]);
-  const [selectedWeekKey, setSelectedWeekKey] = useState("");
+  const [selectedWeekKey, setSelectedWeekKey] = useState(ALL_WEEKS_KEY);
+  const [expandedWeeks, setExpandedWeeks] = useState(() => new Set());
 
   /* ----- normalizza da /programs ----- */
   const normalizeFromPrograms = (list = []) =>
@@ -442,17 +444,19 @@ const storicoUrlClean = useMemo(() => (storicoConsumiUrl || "").replace(/"/g, ""
       <div className="flex-1 overflow-auto rounded-2xl border">
   <table className="w-full text-sm">
     <thead className="sticky top-0 bg-gray-50">
-      <tr className="text-left">
-        <th className="p-2">Program Code</th>
-        <th className="p-2">Descrizione</th>
-        <th className="p-2">Cliente</th>
-        <th className="p-2">Stato</th>
-        <th className="p-2">Inizio</th>
-        <th className="p-2">Fine</th>
-        <th className="p-2">Durata</th>
-        <th className="p-2"># Lavorazioni</th>
-      </tr>
-    </thead>
+  <tr className="text-left">
+    <th className="p-2">Program Code</th>
+    <th className="p-2">Descrizione</th>
+    <th className="p-2">Cliente</th>
+    <th className="p-2">Stato</th>
+    <th className="p-2">Inizio</th>
+    <th className="p-2">Fine</th>
+    <th className="p-2">Durata</th>
+    <th className="p-2"># Lavorazioni</th>
+    <th className="p-2">Consumo kWh</th> {/* ✅ nuova colonna */}
+  </tr>
+</thead>
+
 
     <tbody>
       {loading ? (
@@ -473,7 +477,12 @@ const storicoUrlClean = useMemo(() => (storicoConsumiUrl || "").replace(/"/g, ""
             <td className="p-2">{fmtDate(r.startTime)}</td>
             <td className="p-2">{fmtDate(r.endTime)}</td>
             <td className="p-2">{fmtDuration(r.startTime, r.endTime)}</td>
-            <td className="p-2">{r.numWorkings ?? 0}</td>
+            <td className="p-2">
+  {r.consumo_kwh !== undefined && !isNaN(r.consumo_kwh)
+    ? Number(r.consumo_kwh).toFixed(3)
+    : "—"}
+</td>
+
           </tr>
         ))
       )}
