@@ -928,3 +928,308 @@ reportDdtPath']
 [2025-10-08 09:40:39] DEBUG codice_commessa_norm='C' (raw='ESTEE LAUDER _allestimento cantù_P2481_C')
 [2025-10-08 09:40:39] DEBUG MATERIALI contiene (3 file): DDT_0116W__08-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_ESTEE LAUDER _allestimento cantù_P2481_C.xlsx
 [2025-10-08 09:40:39] NON ESEGUITO: Excel DDT NON aggiornato: DDT Entrata NON trovato (folder='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\ESTEE LAUDER _allestimento cantù_P2481_C\MATERIALI')
+[2025-10-09 14:07:30] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-09 14:07:30] DEBUG nomeCommessa='GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947' descrizione='Assembraggio GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947'
+[2025-10-09 14:07:30] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-09 14:07:30] DEBUG estrazione: sorgente='Assembraggio GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947' -> estratto='agg GT profumeria cvt tester mascara'
+[2025-10-09 14:07:30] DEBUG nomeCommessa='GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947' descrizione='Assembraggio GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947'
+[2025-10-09 14:07:30] DEBUG estrazione: sorgente='Assembraggio GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947' -> estratto='agg GT profumeria cvt tester mascara'
+[2025-10-09 14:07:30] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947\MATERIALI' esiste=True
+[2025-10-09 14:07:30] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947\MATERIALI' esiste=True
+[2025-10-09 14:07:30] DEBUG codice_commessa_norm='C4947' (raw='C4947')
+[2025-10-09 14:07:30] DEBUG MATERIALI contiene (4 file): DDT_0046T_C4947_18-09-2025.pdf, DDT_0117W_C4947_09-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947.xlsx
+[2025-10-09 14:07:30] DEBUG match regex ENTRATA: DDT_0117W_C4947_09-10-2025.pdf
+[2025-10-09 14:07:30] DEBUG MATERIALI contiene (4 file): DDT_0046T_C4947_18-09-2025.pdf, DDT_0117W_C4947_09-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947.xlsx
+[2025-10-09 14:07:30] DEBUG match regex ENTRATA: DDT_0117W_C4947_09-10-2025.pdf
+[2025-10-09 14:07:30] DEBUG MATERIALI contiene (4 file): DDT_0046T_C4947_18-09-2025.pdf, DDT_0117W_C4947_09-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947.xlsx
+[2025-10-09 14:07:30] DEBUG match regex USCITA: DDT_0046T_C4947_18-09-2025.pdf
+[2025-10-09 14:07:30] DEBUG MATERIALI contiene (4 file): DDT_0046T_C4947_18-09-2025.pdf, DDT_0117W_C4947_09-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947.xlsx
+[2025-10-09 14:07:30] DEBUG match regex USCITA: DDT_0046T_C4947_18-09-2025.pdf
+[2025-10-09 14:07:30] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 12
+[2025-10-09 14:07:30] DEBUG prezzoVendita ricevuto='19' -> usato=19.0
+[2025-10-09 14:07:30] DEBUG prezzoVendita ricevuto='19' -> usato=19.0
+[2025-10-09 14:07:30] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 12) | NomeCommessa='agg GT profumeria cvt tester mascara' | Codice='C4947' | PrezzoVendita=19.0 | PDF_IN='DDT_0117W_C4947_09-10-2025.pdf'
+[2025-10-09 14:07:30] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 12) | NomeCommessa='agg GT profumeria cvt tester mascara' | Codice='C4947' | PrezzoVendita=19.0 | PDF_IN='DDT_0117W_C4947_09-10-2025.pdf'
+[2025-10-09 14:07:31] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-09 14:07:31] DEBUG nomeCommessa='GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947' descrizione='Assembraggio GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947'
+[2025-10-09 14:07:31] DEBUG estrazione: sorgente='Assembraggio GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947' -> estratto='agg GT profumeria cvt tester mascara'
+[2025-10-09 14:07:31] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947\MATERIALI' esiste=True
+[2025-10-09 14:07:31] DEBUG codice_commessa_norm='C4947' (raw='C4947')
+[2025-10-09 14:07:31] DEBUG MATERIALI contiene (4 file): DDT_0046T_C4947_18-09-2025.pdf, DDT_0117W_C4947_09-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947.xlsx
+[2025-10-09 14:07:31] DEBUG match regex ENTRATA: DDT_0117W_C4947_09-10-2025.pdf
+[2025-10-09 14:07:31] DEBUG MATERIALI contiene (4 file): DDT_0046T_C4947_18-09-2025.pdf, DDT_0117W_C4947_09-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_agg GT profumeria cvt tester mascara_P2426_C4947.xlsx
+[2025-10-09 14:07:31] DEBUG match regex USCITA: DDT_0046T_C4947_18-09-2025.pdf
+[2025-10-09 14:07:31] DEBUG dedupe: sovrascrivo riga esistente 12 per DDT 0117W
+[2025-10-09 14:07:31] DEBUG prezzoVendita ricevuto='19' -> usato=19.0
+[2025-10-09 14:07:31] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 12) | NomeCommessa='agg GT profumeria cvt tester mascara' | Codice='C4947' | PrezzoVendita=19.0 | PDF_IN='DDT_0117W_C4947_09-10-2025.pdf'
+[2025-10-10 09:41:40] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-10 09:41:40] DEBUG nomeCommessa='GOOVI_gt 3° canvas farmacia_P_C4919' descrizione='Assembraggio GOOVI_gt 3° canvas farmacia_P_C4919'
+, 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-10 09:41:40] DEBUG nomeCommessa='GOOVI_gt 3° canvas farmacia_P_C4919' descrizione='Assembraggio GOOVI_gt 3° canvas farmacia_P_C4919'
+[2025-10-10 09:41:40] DEBUG estrazione: sorgente='Assembraggio GOOVI_gt 3° canvas farmacia_P_C4919' -> estratto='gt 3° canvas farmacia'
+[2025-10-10 09:41:40] DEBUG estrazione: sorgente='Assembraggio GOOVI_gt 3° canvas farmacia_P_C4919' -> estratto='gt 3° canvas farmacia'
+[2025-10-10 09:41:40] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\GOOVI_gt 3° canvas farmacia_P_C4919\MATERIALI' esiste=True
+[2025-10-10 09:41:40] DEBUG codice_commessa_norm='C4919' (raw='C4919')
+[2025-10-10 09:41:40] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\GOOVI_gt 3° canvas farmacia_P_C4919\MATERIALI' esiste=True
+[2025-10-10 09:41:40] DEBUG codice_commessa_norm='C4919' (raw='C4919')
+[2025-10-10 09:41:40] DEBUG MATERIALI contiene (4 file): DDT_0047T_C4919_23-09-2025.pdf, DDT_0118W_C4919_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_gt 3° canvas farmacia_P_C4919.xlsx
+[2025-10-10 09:41:40] DEBUG match regex ENTRATA: DDT_0118W_C4919_10-10-2025.pdf
+[2025-10-10 09:41:40] DEBUG MATERIALI contiene (4 file): DDT_0047T_C4919_23-09-2025.pdf, DDT_0118W_C4919_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_gt 3° canvas farmacia_P_C4919.xlsx
+[2025-10-10 09:41:40] DEBUG match regex ENTRATA: DDT_0118W_C4919_10-10-2025.pdf
+[2025-10-10 09:41:40] DEBUG MATERIALI contiene (4 file): DDT_0047T_C4919_23-09-2025.pdf, DDT_0118W_C4919_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_gt 3° canvas farmacia_P_C4919.xlsx
+[2025-10-10 09:41:40] DEBUG match regex USCITA: DDT_0047T_C4919_23-09-2025.pdf
+[2025-10-10 09:41:40] DEBUG MATERIALI contiene (4 file): DDT_0047T_C4919_23-09-2025.pdf, DDT_0118W_C4919_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_gt 3° canvas farmacia_P_C4919.xlsx
+[2025-10-10 09:41:40] DEBUG match regex USCITA: DDT_0047T_C4919_23-09-2025.pdf
+[2025-10-10 09:41:41] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 13
+[2025-10-10 09:41:41] DEBUG prezzoVendita ricevuto='284' -> usato=284.0
+[2025-10-10 09:41:41] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 13
+[2025-10-10 09:41:41] DEBUG prezzoVendita ricevuto='284' -> usato=284.0
+[2025-10-10 09:41:41] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 13) | NomeCommessa='gt 3° canvas farmacia' | Codice='C4919' | PrezzoVendita=284.0 | PDF_IN='DDT_0118W_C4919_10-10-2025.pdf'
+[2025-10-10 09:41:41] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 13) | NomeCommessa='gt 3° canvas farmacia' | Codice='C4919' | PrezzoVendita=284.0 | PDF_IN='DDT_0118W_C4919_10-10-2025.pdf'
+[2025-10-10 09:41:41] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-10 09:41:41] DEBUG nomeCommessa='GOOVI_gt 3° canvas farmacia_P_C4919' descrizione='Assembraggio GOOVI_gt 3° canvas farmacia_P_C4919'
+[2025-10-10 09:41:41] DEBUG estrazione: sorgente='Assembraggio GOOVI_gt 3° canvas farmacia_P_C4919' -> estratto='gt 3° canvas farmacia'
+[2025-10-10 09:41:41] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\GOOVI_gt 3° canvas farmacia_P_C4919\MATERIALI' esiste=True
+[2025-10-10 09:41:41] DEBUG codice_commessa_norm='C4919' (raw='C4919')
+[2025-10-10 09:41:41] DEBUG MATERIALI contiene (4 file): DDT_0047T_C4919_23-09-2025.pdf, DDT_0118W_C4919_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_gt 3° canvas farmacia_P_C4919.xlsx
+[2025-10-10 09:41:41] DEBUG match regex ENTRATA: DDT_0118W_C4919_10-10-2025.pdf
+[2025-10-10 09:41:41] DEBUG MATERIALI contiene (4 file): DDT_0047T_C4919_23-09-2025.pdf, DDT_0118W_C4919_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_GOOVI_gt 3° canvas farmacia_P_C4919.xlsx
+[2025-10-10 09:41:41] DEBUG match regex USCITA: DDT_0047T_C4919_23-09-2025.pdf
+[2025-10-10 09:41:41] DEBUG dedupe: sovrascrivo riga esistente 13 per DDT 0118W
+[2025-10-10 09:41:41] DEBUG prezzoVendita ricevuto='284' -> usato=284.0
+[2025-10-10 09:41:41] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 13) | NomeCommessa='gt 3° canvas farmacia' | Codice='C4919' | PrezzoVendita=284.0 | PDF_IN='DDT_0118W_C4919_10-10-2025.pdf'
+[2025-10-10 09:42:54] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-10 09:42:54] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-10 09:42:54] DEBUG nomeCommessa='KIKO_bin mus slim_P_C4963-9' descrizione='Assembraggio KIKO_bin mus slim_P_C4963-9'
+[2025-10-10 09:42:54] DEBUG nomeCommessa='KIKO_bin mus slim_P_C4963-9' descrizione='Assembraggio KIKO_bin mus slim_P_C4963-9'
+[2025-10-10 09:42:54] DEBUG estrazione: sorgente='Assembraggio KIKO_bin mus slim_P_C4963-9' -> estratto='bin mus slim'
+[2025-10-10 09:42:54] DEBUG estrazione: sorgente='Assembraggio KIKO_bin mus slim_P_C4963-9' -> estratto='bin mus slim'
+[2025-10-10 09:42:54] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_bin mus slim_P_C4963-9\MATERIALI' esiste=True
+[2025-10-10 09:42:54] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_bin mus slim_P_C4963-9\MATERIALI' esiste=True
+[2025-10-10 09:42:54] DEBUG codice_commessa_norm='C4963-9' (raw='C4963-9')
+[2025-10-10 09:42:54] DEBUG codice_commessa_norm='C4963-9' (raw='C4963-9')
+[2025-10-10 09:42:54] DEBUG MATERIALI contiene (3 file): DDT_0119W_C4963-9_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_bin mus slim_P_C4963-9.xlsx
+[2025-10-10 09:42:54] DEBUG MATERIALI contiene (3 file): DDT_0119W_C4963-9_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_bin mus slim_P_C4963-9.xlsx
+[2025-10-10 09:42:54] DEBUG match regex ENTRATA: DDT_0119W_C4963-9_10-10-2025.pdf
+[2025-10-10 09:42:54] DEBUG match regex ENTRATA: DDT_0119W_C4963-9_10-10-2025.pdf
+[2025-10-10 09:42:54] DEBUG MATERIALI contiene (3 file): DDT_0119W_C4963-9_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_bin mus slim_P_C4963-9.xlsx
+[2025-10-10 09:42:54] DEBUG MATERIALI contiene (3 file): DDT_0119W_C4963-9_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_bin mus slim_P_C4963-9.xlsx
+[2025-10-10 09:42:54] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 14
+[2025-10-10 09:42:54] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 14
+[2025-10-10 09:42:54] DEBUG prezzoVendita ricevuto='50' -> usato=50.0
+[2025-10-10 09:42:54] DEBUG prezzoVendita ricevuto='50' -> usato=50.0
+[2025-10-10 09:42:54] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 14) | NomeCommessa='bin mus slim' | Codice='C4963-9' | PrezzoVendita=50.0 | PDF_IN='DDT_0119W_C4963-9_10-10-2025.pdf'
+[2025-10-10 09:42:54] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 14) | NomeCommessa='bin mus slim' | Codice='C4963-9' | PrezzoVendita=50.0 | PDF_IN='DDT_0119W_C4963-9_10-10-2025.pdf'
+[2025-10-10 09:42:55] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-10 09:42:55] DEBUG nomeCommessa='KIKO_bin mus slim_P_C4963-9' descrizione='Assembraggio KIKO_bin mus slim_P_C4963-9'
+[2025-10-10 09:42:55] DEBUG estrazione: sorgente='Assembraggio KIKO_bin mus slim_P_C4963-9' -> estratto='bin mus slim'
+[2025-10-10 09:42:55] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_bin mus slim_P_C4963-9\MATERIALI' esiste=True
+[2025-10-10 09:42:55] DEBUG codice_commessa_norm='C4963-9' (raw='KIKO_bin mus slim_P_C4963-9')
+[2025-10-10 09:42:55] DEBUG MATERIALI contiene (3 file): DDT_0119W_C4963-9_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_bin mus slim_P_C4963-9.xlsx
+[2025-10-10 09:42:55] DEBUG match regex ENTRATA: DDT_0119W_C4963-9_10-10-2025.pdf
+[2025-10-10 09:42:55] DEBUG MATERIALI contiene (3 file): DDT_0119W_C4963-9_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_bin mus slim_P_C4963-9.xlsx
+[2025-10-10 09:42:55] DEBUG dedupe: sovrascrivo riga esistente 14 per DDT 0119W
+[2025-10-10 09:42:55] DEBUG prezzoVendita ricevuto='50' -> usato=50.0
+[2025-10-10 09:42:55] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 14) | NomeCommessa='bin mus slim' | Codice='C4963-9' | PrezzoVendita=50.0 | PDF_IN='DDT_0119W_C4963-9_10-10-2025.pdf'
+[2025-10-10 09:45:44] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-10 09:45:44] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-10 09:45:44] DEBUG nomeCommessa='KIKO_stickes long lasting 443  _P_C4977-14' descrizione='Assembraggio KIKO_stickes long lasting 443  _P_C4977-14'
+[2025-10-10 09:45:44] DEBUG nomeCommessa='KIKO_stickes long lasting 443  _P_C4977-14' descrizione='Assembraggio KIKO_stickes long lasting 443  _P_C4977-14'
+[2025-10-10 09:45:44] DEBUG estrazione: sorgente='Assembraggio KIKO_stickes long lasting 443  _P_C4977-14' -> estratto='stickes long lasting 443'
+[2025-10-10 09:45:44] DEBUG estrazione: sorgente='Assembraggio KIKO_stickes long lasting 443  _P_C4977-14' -> estratto='stickes long lasting 443'
+[2025-10-10 09:45:44] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_stickes long lasting 443  _P_C4977-14\MATERIALI' esiste=True
+[2025-10-10 09:45:44] DEBUG codice_commessa_norm='C4977-14' (raw='C4977-14')
+[2025-10-10 09:45:44] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_stickes long lasting 443  _P_C4977-14\MATERIALI' esiste=True
+[2025-10-10 09:45:44] DEBUG codice_commessa_norm='C4977-14' (raw='C4977-14')
+[2025-10-10 09:45:44] DEBUG MATERIALI contiene (4 file): DDT_0050T_C4977-14_29-09-2025.pdf, DDT_0120W_C4977-14_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_stickes long lasting 443  _P_C4977-14.xlsx
+[2025-10-10 09:45:44] DEBUG MATERIALI contiene (4 file): DDT_0050T_C4977-14_29-09-2025.pdf, DDT_0120W_C4977-14_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_stickes long lasting 443  _P_C4977-14.xlsx
+[2025-10-10 09:45:44] DEBUG match regex ENTRATA: DDT_0120W_C4977-14_10-10-2025.pdf
+[2025-10-10 09:45:44] DEBUG match regex ENTRATA: DDT_0120W_C4977-14_10-10-2025.pdf
+[2025-10-10 09:45:44] DEBUG MATERIALI contiene (4 file): DDT_0050T_C4977-14_29-09-2025.pdf, DDT_0120W_C4977-14_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_stickes long lasting 443  _P_C4977-14.xlsx
+[2025-10-10 09:45:44] DEBUG match regex USCITA: DDT_0050T_C4977-14_29-09-2025.pdf
+[2025-10-10 09:45:44] DEBUG MATERIALI contiene (4 file): DDT_0050T_C4977-14_29-09-2025.pdf, DDT_0120W_C4977-14_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_stickes long lasting 443  _P_C4977-14.xlsx
+[2025-10-10 09:45:44] DEBUG match regex USCITA: DDT_0050T_C4977-14_29-09-2025.pdf
+[2025-10-10 09:45:44] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 15
+[2025-10-10 09:45:44] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 15
+[2025-10-10 09:45:44] DEBUG prezzoVendita ricevuto='3.5' -> usato=3.5
+[2025-10-10 09:45:44] DEBUG prezzoVendita ricevuto='3.5' -> usato=3.5
+[2025-10-10 09:45:44] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 15) | NomeCommessa='stickes long lasting 443' | Codice='C4977-14' | PrezzoVendita=3.5 | PDF_IN='DDT_0120W_C4977-14_10-10-2025.pdf'
+[2025-10-10 09:45:44] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 15) | NomeCommessa='stickes long lasting 443' | Codice='C4977-14' | PrezzoVendita=3.5 | PDF_IN='DDT_0120W_C4977-14_10-10-2025.pdf'
+[2025-10-10 09:45:45] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-10 09:45:45] DEBUG nomeCommessa='KIKO_stickes long lasting 443  _P_C4977-14' descrizione='Assembraggio KIKO_stickes long lasting 443  _P_C4977-14'
+[2025-10-10 09:45:45] DEBUG estrazione: sorgente='Assembraggio KIKO_stickes long lasting 443  _P_C4977-14' -> estratto='stickes long lasting 443'
+[2025-10-10 09:45:45] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_stickes long lasting 443  _P_C4977-14\MATERIALI' esiste=True
+[2025-10-10 09:45:45] DEBUG codice_commessa_norm='C4977-14' (raw='KIKO_stickes long lasting 443  _P_C4977-14')
+[2025-10-10 09:45:45] DEBUG MATERIALI contiene (4 file): DDT_0050T_C4977-14_29-09-2025.pdf, DDT_0120W_C4977-14_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_stickes long lasting 443  _P_C4977-14.xlsx
+[2025-10-10 09:45:45] DEBUG match regex ENTRATA: DDT_0120W_C4977-14_10-10-2025.pdf
+[2025-10-10 09:45:45] DEBUG MATERIALI contiene (4 file): DDT_0050T_C4977-14_29-09-2025.pdf, DDT_0120W_C4977-14_10-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_KIKO_stickes long lasting 443  _P_C4977-14.xlsx
+[2025-10-10 09:45:45] DEBUG match regex USCITA: DDT_0050T_C4977-14_29-09-2025.pdf
+[2025-10-10 09:45:45] DEBUG dedupe: sovrascrivo riga esistente 15 per DDT 0120W
+[2025-10-10 09:45:45] DEBUG prezzoVendita ricevuto='3.5' -> usato=3.5
+[2025-10-10 09:45:45] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 15) | NomeCommessa='stickes long lasting 443' | Codice='C4977-14' | PrezzoVendita=3.5 | PDF_IN='DDT_0120W_C4977-14_10-10-2025.pdf'
+[2025-10-10 09:46:17] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-10 09:46:17] DEBUG nomeCommessa='KIKO_banner haircare+skincare  _P_C5003-06' descrizione='Assembraggio KIKO_banner haircare+skincare  _P_C5003-06'
+[2025-10-10 09:46:17] DEBUG estrazione: sorgente='Assembraggio KIKO_banner haircare+skincare  _P_C5003-06' -> estratto='banner haircare+skincare'
+[2025-10-10 09:46:17] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_banner haircare+skincare  _P_C5003-06\MATERIALI' esiste=True
+[2025-10-10 09:46:17] DEBUG codice_commessa_norm='C5003-06' (raw='C5003-06')
+[2025-10-10 09:46:17] DEBUG MATERIALI contiene (2 file): DDT_0121W_C5003-06_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 09:46:17] DEBUG match regex ENTRATA: DDT_0121W_C5003-06_10-10-2025.pdf
+[2025-10-10 09:46:17] DEBUG MATERIALI contiene (2 file): DDT_0121W_C5003-06_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 09:46:17] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 16
+[2025-10-10 09:46:17] DEBUG prezzoVendita ricevuto='30' -> usato=30.0
+[2025-10-10 09:46:17] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 16) | NomeCommessa='banner haircare+skincare' | Codice='C5003-06' | PrezzoVendita=30.0 | PDF_IN='DDT_0121W_C5003-06_10-10-2025.pdf'
+[2025-10-10 09:46:18] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-10 09:46:18] DEBUG nomeCommessa='KIKO_banner haircare+skincare  _P_C5003-06' descrizione='Assembraggio KIKO_banner haircare+skincare  _P_C5003-06'
+[2025-10-10 09:46:18] DEBUG estrazione: sorgente='Assembraggio KIKO_banner haircare+skincare  _P_C5003-06' -> estratto='banner haircare+skincare'
+[2025-10-10 09:46:18] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_banner haircare+skincare  _P_C5003-06\MATERIALI' esiste=True
+[2025-10-10 09:46:18] DEBUG codice_commessa_norm='C5003-06' (raw='C5003-06')
+[2025-10-10 09:46:18] DEBUG MATERIALI contiene (2 file): DDT_0121W_C5003-06_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 09:46:18] DEBUG match regex ENTRATA: DDT_0121W_C5003-06_10-10-2025.pdf
+[2025-10-10 09:46:18] DEBUG MATERIALI contiene (2 file): DDT_0121W_C5003-06_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 09:46:18] DEBUG dedupe: sovrascrivo riga esistente 16 per DDT 0121W
+[2025-10-10 09:46:18] DEBUG prezzoVendita ricevuto='30' -> usato=30.0
+[2025-10-10 09:46:18] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 16) | NomeCommessa='banner haircare+skincare' | Codice='C5003-06' | PrezzoVendita=30.0 | PDF_IN='DDT_0121W_C5003-06_10-10-2025.pdf'
+[2025-10-10 09:46:18] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-10 09:46:18] DEBUG nomeCommessa='KIKO_banner haircare+skincare  _P_C5003-06' descrizione='Assembraggio KIKO_banner haircare+skincare  _P_C5003-06'
+[2025-10-10 09:46:18] DEBUG estrazione: sorgente='Assembraggio KIKO_banner haircare+skincare  _P_C5003-06' -> estratto='banner haircare+skincare'
+[2025-10-10 09:46:18] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_banner haircare+skincare  _P_C5003-06\MATERIALI' esiste=True
+[2025-10-10 09:46:18] DEBUG codice_commessa_norm='C5003-06' (raw='KIKO_banner haircare+skincare  _P_C5003-06')
+[2025-10-10 09:46:18] DEBUG MATERIALI contiene (2 file): DDT_0121W_C5003-06_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 09:46:18] DEBUG match regex ENTRATA: DDT_0121W_C5003-06_10-10-2025.pdf
+[2025-10-10 09:46:18] DEBUG MATERIALI contiene (2 file): DDT_0121W_C5003-06_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 09:46:18] DEBUG dedupe: sovrascrivo riga esistente 16 per DDT 0121W
+[2025-10-10 09:46:18] DEBUG prezzoVendita ricevuto='30' -> usato=30.0
+[2025-10-10 09:46:18] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 16) | NomeCommessa='banner haircare+skincare' | Codice='C5003-06' | PrezzoVendita=30.0 | PDF_IN='DDT_0121W_C5003-06_10-10-2025.pdf'
+[2025-10-10 13:59:08] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-10 13:59:08] DEBUG nomeCommessa='KIKO_cvt 385 highlighters drop_P_C4975-25' descrizione='Assembraggio KIKO_cvt 385 highlighters drop_P_C4975-25'
+[2025-10-10 13:59:08] DEBUG estrazione: sorgente='Assembraggio KIKO_cvt 385 highlighters drop_P_C4975-25' -> estratto='cvt 385 highlighters drop'
+[2025-10-10 13:59:08] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_cvt 385 highlighters drop_P_C4975-25\MATERIALI' esiste=True
+[2025-10-10 13:59:08] DEBUG codice_commessa_norm='C4975-25' (raw='C4975-25')
+[2025-10-10 13:59:08] DEBUG MATERIALI contiene (2 file): DDT_0122W_C4975-25_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 13:59:08] DEBUG match regex ENTRATA: DDT_0122W_C4975-25_10-10-2025.pdf
+[2025-10-10 13:59:08] DEBUG MATERIALI contiene (2 file): DDT_0122W_C4975-25_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 13:59:08] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 17
+[2025-10-10 13:59:08] DEBUG prezzoVendita ricevuto='18' -> usato=18.0
+[2025-10-10 13:59:08] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 17) | NomeCommessa='cvt 385 highlighters drop' | Codice='C4975-25' | PrezzoVendita=18.0 | PDF_IN='DDT_0122W_C4975-25_10-10-2025.pdf'
+[2025-10-10 13:59:13] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-10 13:59:13] DEBUG nomeCommessa='KIKO_cvt 385 highlighters drop_P_C4975-25' descrizione='Assembraggio KIKO_cvt 385 highlighters drop_P_C4975-25'
+[2025-10-10 13:59:13] DEBUG estrazione: sorgente='Assembraggio KIKO_cvt 385 highlighters drop_P_C4975-25' -> estratto='cvt 385 highlighters drop'
+[2025-10-10 13:59:13] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_cvt 385 highlighters drop_P_C4975-25\MATERIALI' esiste=True
+[2025-10-10 13:59:13] DEBUG codice_commessa_norm='C4975-25' (raw='C4975-25')
+[2025-10-10 13:59:13] DEBUG MATERIALI contiene (2 file): DDT_0122W_C4975-25_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 13:59:13] DEBUG match regex ENTRATA: DDT_0122W_C4975-25_10-10-2025.pdf
+[2025-10-10 13:59:13] DEBUG MATERIALI contiene (2 file): DDT_0122W_C4975-25_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 13:59:13] DEBUG dedupe: sovrascrivo riga esistente 17 per DDT 0122W
+[2025-10-10 13:59:13] DEBUG prezzoVendita ricevuto='18' -> usato=18.0
+[2025-10-10 13:59:13] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 17) | NomeCommessa='cvt 385 highlighters drop' | Codice='C4975-25' | PrezzoVendita=18.0 | PDF_IN='DDT_0122W_C4975-25_10-10-2025.pdf'
+[2025-10-10 13:59:13] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-10 13:59:13] DEBUG nomeCommessa='KIKO_cvt 385 highlighters drop_P_C4975-25' descrizione='Assembraggio KIKO_cvt 385 highlighters drop_P_C4975-25'
+[2025-10-10 13:59:13] DEBUG estrazione: sorgente='Assembraggio KIKO_cvt 385 highlighters drop_P_C4975-25' -> estratto='cvt 385 highlighters drop'
+[2025-10-10 13:59:13] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\KIKO_cvt 385 highlighters drop_P_C4975-25\MATERIALI' esiste=True
+[2025-10-10 13:59:13] DEBUG codice_commessa_norm='C4975-25' (raw='KIKO_cvt 385 highlighters drop_P_C4975-25')
+[2025-10-10 13:59:13] DEBUG MATERIALI contiene (2 file): DDT_0122W_C4975-25_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 13:59:13] DEBUG match regex ENTRATA: DDT_0122W_C4975-25_10-10-2025.pdf
+[2025-10-10 13:59:13] DEBUG MATERIALI contiene (2 file): DDT_0122W_C4975-25_10-10-2025.pdf, DISTINTA com..xlsx
+[2025-10-10 13:59:13] DEBUG dedupe: sovrascrivo riga esistente 17 per DDT 0122W
+[2025-10-10 13:59:13] DEBUG prezzoVendita ricevuto='18' -> usato=18.0
+[2025-10-10 13:59:13] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 17) | NomeCommessa='cvt 385 highlighters drop' | Codice='C4975-25' | PrezzoVendita=18.0 | PDF_IN='DDT_0122W_C4975-25_10-10-2025.pdf'
+[2025-10-13 12:15:08] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-13 12:15:08] DEBUG nomeCommessa='LAVAZZA_basetta antitaccheggio_P_C5026' descrizione='Assembraggio LAVAZZA_basetta antitaccheggio_P_C5026'
+[2025-10-13 12:15:08] DEBUG nomeCommessa='LAVAZZA_basetta antitaccheggio_P_C5026' descrizione='Assembraggio LAVAZZA_basetta antitaccheggio_P_C5026'
+[2025-10-13 12:15:08] DEBUG estrazione: sorgente='Assembraggio LAVAZZA_basetta antitaccheggio_P_C5026' -> estratto='basetta antitaccheggio'
+[2025-10-13 12:15:08] DEBUG estrazione: sorgente='Assembraggio LAVAZZA_basetta antitaccheggio_P_C5026' -> estratto='basetta antitaccheggio'
+[2025-10-13 12:15:08] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\LAVAZZA_basetta antitaccheggio_P_C5026\MATERIALI' esiste=True
+[2025-10-13 12:15:08] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\LAVAZZA_basetta antitaccheggio_P_C5026\MATERIALI' esiste=True
+[2025-10-13 12:15:08] DEBUG codice_commessa_norm='C5026' (raw='C5026')
+[2025-10-13 12:15:08] DEBUG codice_commessa_norm='C5026' (raw='C5026')
+[2025-10-13 12:15:08] DEBUG MATERIALI contiene (4 file): DDT_0056T_C5026_09-10-2025.pdf, DDT_0123W_C5026_13-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_LAVAZZA_basetta antitaccheggio_P_C5026.xlsx
+[2025-10-13 12:15:08] DEBUG MATERIALI contiene (4 file): DDT_0056T_C5026_09-10-2025.pdf, DDT_0123W_C5026_13-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_LAVAZZA_basetta antitaccheggio_P_C5026.xlsx
+[2025-10-13 12:15:08] DEBUG match regex ENTRATA: DDT_0123W_C5026_13-10-2025.pdf
+[2025-10-13 12:15:08] DEBUG match regex ENTRATA: DDT_0123W_C5026_13-10-2025.pdf
+[2025-10-13 12:15:08] DEBUG MATERIALI contiene (4 file): DDT_0056T_C5026_09-10-2025.pdf, DDT_0123W_C5026_13-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_LAVAZZA_basetta antitaccheggio_P_C5026.xlsx
+[2025-10-13 12:15:08] DEBUG match regex USCITA: DDT_0056T_C5026_09-10-2025.pdf
+[2025-10-13 12:15:08] DEBUG MATERIALI contiene (4 file): DDT_0056T_C5026_09-10-2025.pdf, DDT_0123W_C5026_13-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_LAVAZZA_basetta antitaccheggio_P_C5026.xlsx
+[2025-10-13 12:15:08] DEBUG match regex USCITA: DDT_0056T_C5026_09-10-2025.pdf
+[2025-10-13 12:15:08] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 18
+[2025-10-13 12:15:08] DEBUG prezzoVendita ricevuto='22.128' -> usato=22.128
+[2025-10-13 12:15:08] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 18
+[2025-10-13 12:15:08] DEBUG prezzoVendita ricevuto='22.128' -> usato=22.128
+[2025-10-13 12:15:08] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 18) | NomeCommessa='basetta antitaccheggio' | Codice='C5026' | PrezzoVendita=22.128 | PDF_IN='DDT_0123W_C5026_13-10-2025.pdf'
+[2025-10-13 12:15:08] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 18) | NomeCommessa='basetta antitaccheggio' | Codice='C5026' | PrezzoVendita=22.128 | PDF_IN='DDT_0123W_C5026_13-10-2025.pdf'
+[2025-10-13 12:15:09] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-13 12:15:09] DEBUG nomeCommessa='LAVAZZA_basetta antitaccheggio_P_C5026' descrizione='Assembraggio LAVAZZA_basetta antitaccheggio_P_C5026'
+[2025-10-13 12:15:09] DEBUG estrazione: sorgente='Assembraggio LAVAZZA_basetta antitaccheggio_P_C5026' -> estratto='basetta antitaccheggio'
+[2025-10-13 12:15:09] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\LAVAZZA_basetta antitaccheggio_P_C5026\MATERIALI' esiste=True
+[2025-10-13 12:15:09] DEBUG codice_commessa_norm='C5026' (raw='C5026')
+[2025-10-13 12:15:09] DEBUG MATERIALI contiene (4 file): DDT_0056T_C5026_09-10-2025.pdf, DDT_0123W_C5026_13-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_LAVAZZA_basetta antitaccheggio_P_C5026.xlsx
+[2025-10-13 12:15:09] DEBUG match regex ENTRATA: DDT_0123W_C5026_13-10-2025.pdf
+[2025-10-13 12:15:09] DEBUG MATERIALI contiene (4 file): DDT_0056T_C5026_09-10-2025.pdf, DDT_0123W_C5026_13-10-2025.pdf, DISTINTA com..xlsx, DistintaMateriali_LAVAZZA_basetta antitaccheggio_P_C5026.xlsx
+[2025-10-13 12:15:09] DEBUG match regex USCITA: DDT_0056T_C5026_09-10-2025.pdf
+[2025-10-13 12:15:09] DEBUG dedupe: sovrascrivo riga esistente 18 per DDT 0123W
+[2025-10-13 12:15:09] DEBUG prezzoVendita ricevuto='22.128' -> usato=22.128
+[2025-10-13 12:15:09] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 18) | NomeCommessa='basetta antitaccheggio' | Codice='C5026' | PrezzoVendita=22.128 | PDF_IN='DDT_0123W_C5026_13-10-2025.pdf'
+[2025-10-13 13:58:31] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-13 13:58:31] DEBUG nomeCommessa='CLARINS_lastre per vassoi 2025_P9097_C5033' descrizione='Assembraggio CLARINS_lastre per vassoi 2025_P9097_C5033'
+[2025-10-13 13:58:31] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-13 13:58:31] DEBUG estrazione: sorgente='Assembraggio CLARINS_lastre per vassoi 2025_P9097_C5033' -> estratto='lastre per vassoi 2025'
+[2025-10-13 13:58:31] DEBUG nomeCommessa='CLARINS_lastre per vassoi 2025_P9097_C5033' descrizione='Assembraggio CLARINS_lastre per vassoi 2025_P9097_C5033'
+[2025-10-13 13:58:31] DEBUG estrazione: sorgente='Assembraggio CLARINS_lastre per vassoi 2025_P9097_C5033' -> estratto='lastre per vassoi 2025'
+[2025-10-13 13:58:31] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\CLARINS_lastre per vassoi 2025_P9097_C5033\MATERIALI' esiste=True
+[2025-10-13 13:58:31] DEBUG codice_commessa_norm='C5033' (raw='C5033')
+[2025-10-13 13:58:31] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\CLARINS_lastre per vassoi 2025_P9097_C5033\MATERIALI' esiste=True
+[2025-10-13 13:58:31] DEBUG codice_commessa_norm='C5033' (raw='C5033')
+[2025-10-13 13:58:31] DEBUG MATERIALI contiene (1 file): DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG match regex ENTRATA: DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG MATERIALI contiene (1 file): DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG match regex ENTRATA: DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG MATERIALI contiene (1 file): DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG MATERIALI contiene (1 file): DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 19
+[2025-10-13 13:58:31] DEBUG prezzoVendita ricevuto='120' -> usato=120.0
+[2025-10-13 13:58:31] DEBUG prezzoVendita ricevuto='120' -> usato=120.0
+[2025-10-13 13:58:31] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 19) | NomeCommessa='lastre per vassoi 2025' | Codice='C5033' | PrezzoVendita=120.0 | PDF_IN='DDT_0124W_C5033_13-10-2025.pdf'
+[2025-10-13 13:58:31] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 19) | NomeCommessa='lastre per vassoi 2025' | Codice='C5033' | PrezzoVendita=120.0 | PDF_IN='DDT_0124W_C5033_13-10-2025.pdf'
+[2025-10-13 13:58:31] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-13 13:58:31] DEBUG nomeCommessa='CLARINS_lastre per vassoi 2025_P9097_C5033' descrizione='Assembraggio CLARINS_lastre per vassoi 2025_P9097_C5033'
+[2025-10-13 13:58:31] DEBUG estrazione: sorgente='Assembraggio CLARINS_lastre per vassoi 2025_P9097_C5033' -> estratto='lastre per vassoi 2025'
+[2025-10-13 13:58:31] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\CLARINS_lastre per vassoi 2025_P9097_C5033\MATERIALI' esiste=True
+[2025-10-13 13:58:31] DEBUG codice_commessa_norm='C5033' (raw='C5033')
+[2025-10-13 13:58:31] DEBUG MATERIALI contiene (1 file): DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG match regex ENTRATA: DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG MATERIALI contiene (1 file): DDT_0124W_C5033_13-10-2025.pdf
+[2025-10-13 13:58:31] DEBUG dedupe: sovrascrivo riga esistente 19 per DDT 0124W
+[2025-10-13 13:58:31] DEBUG prezzoVendita ricevuto='120' -> usato=120.0
+[2025-10-13 13:58:31] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 19) | NomeCommessa='lastre per vassoi 2025' | Codice='C5033' | PrezzoVendita=120.0 | PDF_IN='DDT_0124W_C5033_13-10-2025.pdf'
+[2025-10-13 13:58:47] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita', 'reportDdtPath']
+[2025-10-13 13:58:47] DEBUG DATI keys=['dataDdt', 'numeroDdt', 'codiceCommessa', 'quantita', 'colli', 'nsDdt', 'del', 'percorsoPdf', 'folderPath', 'descrizione', 'nomeCommessa', 'prezzoVendita']
+[2025-10-13 13:58:47] DEBUG nomeCommessa='YSL_lastre marbre noir _P9178_C5032' descrizione='Assembraggio YSL_lastre marbre noir _P9178_C5032'
+[2025-10-13 13:58:47] DEBUG nomeCommessa='YSL_lastre marbre noir _P9178_C5032' descrizione='Assembraggio YSL_lastre marbre noir _P9178_C5032'
+[2025-10-13 13:58:47] DEBUG estrazione: sorgente='Assembraggio YSL_lastre marbre noir _P9178_C5032' -> estratto='lastre marbre noir'
+[2025-10-13 13:58:47] DEBUG estrazione: sorgente='Assembraggio YSL_lastre marbre noir _P9178_C5032' -> estratto='lastre marbre noir'
+[2025-10-13 13:58:47] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\YSL_lastre marbre noir _P9178_C5032\MATERIALI' esiste=True
+[2025-10-13 13:58:47] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\YSL_lastre marbre noir _P9178_C5032\MATERIALI' esiste=True
+[2025-10-13 13:58:47] DEBUG codice_commessa_norm='C5032' (raw='C5032')
+[2025-10-13 13:58:47] DEBUG codice_commessa_norm='C5032' (raw='C5032')
+[2025-10-13 13:58:47] DEBUG MATERIALI contiene (1 file): DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:47] DEBUG MATERIALI contiene (1 file): DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:47] DEBUG match regex ENTRATA: DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:47] DEBUG match regex ENTRATA: DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:47] DEBUG MATERIALI contiene (1 file): DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:47] DEBUG MATERIALI contiene (1 file): DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:47] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 20
+[2025-10-13 13:58:47] DEBUG prezzoVendita ricevuto='110' -> usato=110.0
+[2025-10-13 13:58:47] DEBUG dedupe: nessuna riga esistente, scrivo in nuova riga 20
+[2025-10-13 13:58:47] DEBUG prezzoVendita ricevuto='110' -> usato=110.0
+[2025-10-13 13:58:47] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 20) | NomeCommessa='lastre marbre noir' | Codice='C5032' | PrezzoVendita=110.0 | PDF_IN='DDT_0125W_C5032_13-10-2025.pdf'
+[2025-10-13 13:58:47] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 20) | NomeCommessa='lastre marbre noir' | Codice='C5032' | PrezzoVendita=110.0 | PDF_IN='DDT_0125W_C5032_13-10-2025.pdf'
+[2025-10-13 13:58:48] DEBUG DATI keys=['codiceCommessa', 'quantita', 'folderPath', 'colli', 'oreLavorazione', 'nomeCommessa', 'prezzoVendita', 'descrizione']
+[2025-10-13 13:58:48] DEBUG nomeCommessa='YSL_lastre marbre noir _P9178_C5032' descrizione='Assembraggio YSL_lastre marbre noir _P9178_C5032'
+[2025-10-13 13:58:48] DEBUG estrazione: sorgente='Assembraggio YSL_lastre marbre noir _P9178_C5032' -> estratto='lastre marbre noir'
+[2025-10-13 13:58:48] DEBUG folder_materiali='\\192.168.1.248\time dati\ARCHIVIO TECNICO\ARCHIVIO\2025\COMMESSE\YSL_lastre marbre noir _P9178_C5032\MATERIALI' esiste=True
+[2025-10-13 13:58:48] DEBUG codice_commessa_norm='C5032' (raw='C5032')
+[2025-10-13 13:58:48] DEBUG MATERIALI contiene (1 file): DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:48] DEBUG match regex ENTRATA: DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:48] DEBUG MATERIALI contiene (1 file): DDT_0125W_C5032_13-10-2025.pdf
+[2025-10-13 13:58:48] DEBUG dedupe: sovrascrivo riga esistente 20 per DDT 0125W
+[2025-10-13 13:58:48] DEBUG prezzoVendita ricevuto='110' -> usato=110.0
+[2025-10-13 13:58:48] OK: scritto su \\192.168.1.248\time dati\ARCHIVIO TECNICO\VARIE\DDT WORK\DDT_Work_10_2025.xlsx (riga 20) | NomeCommessa='lastre marbre noir' | Codice='C5032' | PrezzoVendita=110.0 | PDF_IN='DDT_0125W_C5032_13-10-2025.pdf'

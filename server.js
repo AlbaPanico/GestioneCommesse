@@ -6,12 +6,14 @@ const fse = require('fs-extra');
 const path = require('path');
 const cors = require('cors');
 const http = require('http');
+const axios = require('axios');
 const WebSocket = require('ws');
 const cron = require('node-cron');
 const { startMultiPrinterScheduler, rigeneraSettimana } = require('./stampantiMultiScheduler');
 const crypto = require('crypto');
 const app = express();
 const { PDFDocument, StandardFonts } = require('pdf-lib');
+
 
 
 
@@ -22,6 +24,20 @@ const { spawn } = require('child_process');
 const TEMPLATE_DDT_PATH = path.join(__dirname, 'Template', 'DDT_Work.xlsx');
 const PYTHON_PATH = 'python'; // o 'python3'
 const MATERIALI_SCRIPT = 'C:\\Users\\Applicazioni\\Gestione Commesse\\FinestraMateriali.py';
+
+// === PROTEK ISTANTANEA – CONFIG E CACHE ======================================
+const ENERGY_URL = 'http://192.168.1.41/wsmeasure/big?language=it';
+const ENERGY_TIMEOUT_MS = 6000;
+const ENERGY_CACHE_TTL_MS = 1000;   // 1s: il frontend polla a 1 Hz
+const ENERGY_STALE_AFTER_MS = 15000;
+
+let energyCache = {
+  value_kw: null,   // numero
+  ts: null,         // ISO string
+  lastOk: 0,        // ms epoch dell’ultimo successo
+  lastFetch: 0      // ms epoch dell’ultimo tentativo (per TTL)
+};
+
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Target automatico: mappa IP chiamante -> PC (da presence files degli agent)
@@ -93,6 +109,21 @@ try {
 
 app.use(cors());
 app.use(express.json({ limit: '200mb' }));
+// === STATIC PUBLIC (serve file come protek_widget.html) =======================
+// Usa il percorso UNC: NIENTE lettera Z:, così Node lo vede sempre
+const STATIC_DIR = '\\\\192.168.1.250\\users\\applicazioni\\gestione commesse\\client\\public';
+
+if (!fs.existsSync(STATIC_DIR)) {
+  console.warn('⚠️ STATIC_DIR non trovato:', STATIC_DIR);
+} else {
+  console.log('📁 Static pubblica:', STATIC_DIR);
+}
+
+app.use('/', express.static(STATIC_DIR, { extensions: ['html', 'htm'] }));
+
+app.get('/protek_widget.html', (req, res) => {
+  res.sendFile(path.join(STATIC_DIR, 'protek_widget.html'));
+});
 
 // ===================== Utility percorsi & FS sicuro (UNC Windows) =====================
 const pn = path.win32;
@@ -237,6 +268,17 @@ const saveUsers = (users) => {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
 };
+
+// TEST SEMPLICE: passo un testo/JSON e mi ritorni i kW calcolati
+app.post('/api/_test/extract-kw', (req, res) => {
+  try {
+    const kw = extractKwFromEnergyPayload(req.body?.payload ?? '');
+    res.json({ kw });
+  } catch (e) {
+    res.status(400).json({ error: String(e.message || e) });
+  }
+});
+
 
 app.post('/api/register', (req, res) => {
   const { email, password } = req.body;
@@ -599,6 +641,212 @@ app.post('/api/browse-dir', (req, res) => {
   }
 });
 
+// --- PROTEK ISTANTANEA: utility numero "elastico" (1,23 kW | 1.23 | 1,234.56 ecc.)
+function parseNumberLoose(input) {
+  if (input == null) return NaN;
+  if (typeof input === "number") return Number.isFinite(input) ? input : NaN;
+  const s = String(input).trim();
+  if (!s) return NaN;
+  const m = s.match(/-?\d+[.,]?\d*/);
+  if (!m) return NaN;
+  let num = m[0];
+  if (num.includes(",") && num.includes(".")) {
+    num = num.replace(/\./g, "").replace(",", ".");
+  } else if (num.includes(",")) {
+    num = num.replace(",", ".");
+  }
+  const n = Number(num);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function extractKwFromEnergyPayload(raw) {
+  raw = (raw ?? '').toString();
+
+  // 0) Pattern testuali con unità / UI italiana: priorità massima
+  // 0.a) "Potenza Attiva [kW] ... P <numero>"
+  {
+    const txt = String(raw).replace(/\s+/g, ' ').replace(/<[^>]*>/g, ' ');
+    const m = txt.match(/potenza\s*attiva\s*\[\s*kw\s*\](?:.*?)\bP\b[^0-9-]*(-?\d+(?:[.,]\d+)?)/i);
+    if (m) {
+      const n = Number(m[1].replace(',', '.'));
+      if (Number.isFinite(n)) return n; // è già in kW
+    }
+  }
+
+  // 0.b) "<numero> kW" (generico)
+  {
+    const m = String(raw).match(/(-?\d+(?:[.,]\d+)?)\s*kW\b/i);
+    if (m) {
+      const n = Number(m[1].replace(',', '.'));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+
+  // 0.c) "<numero> W"  → converti in kW (generico)
+  {
+    const m = String(raw).match(/(-?\d+(?:[.,]\d+)?)\s*W\b/i);
+    if (m) {
+      const n = Number(m[1].replace(',', '.'));
+      if (Number.isFinite(n)) return n / 1000;
+    }
+  }
+
+  // 0.d) "Active/Instant Power: <numero> [kW|W]" (inglese, unità opzionale)
+  {
+    const m = String(raw).match(/\b(active|instant|actual|real|total)\s*(power|potenza)\b[^0-9-]*(-?\d+(?:[.,]\d+)?)(?:\s*(kW|W))?/i);
+    if (m) {
+      let n = Number(m[3].replace(',', '.'));
+      const unit = (m[4] || '').toUpperCase();
+      if (Number.isFinite(n)) {
+        if (unit === 'W') n = n / 1000;
+        return n;
+      }
+    }
+  }
+
+  // 1) Parsing JSON con filtri (evita percentuali/volt/temperatura)
+  const BAD_KEYS = /(percent|perc|humidity|umid|temp|temper|volt|voltage|amp|current|freq|hz|rpm|speed|status|state|code|error|err|id|count|items|progress|load|duty)/i;
+  const GOOD_HINTS = /(kw|power|potenza|active|instant|actual|real)/i;
+
+  try {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      const obj = JSON.parse(trimmed);
+      const cand = [];
+
+      (function walk(node, path = []) {
+        if (!node || typeof node !== 'object') return;
+        for (const [k, v] of Object.entries(node)) {
+          const p = path.concat(k);
+          const kp = p.join('.');
+
+          const pushNum = (num) => {
+            if (!Number.isFinite(num)) return;
+            if (num < -1 || num > 200000) return;
+
+            const keyOk = GOOD_HINTS.test(kp) || GOOD_HINTS.test(k);
+            const keyBad = BAD_KEYS.test(kp) || BAD_KEYS.test(k);
+
+            if (num === 100 && !keyOk) return;
+
+            const roundPenalty = (!keyOk && (num === 0 || num === 100)) ? 2 : 0;
+
+            let valKw = num;
+            if (num > 500) valKw = num / 1000; // W→kW
+
+            let score = 0;
+            if (keyOk) score += 5;
+            if (/kw\b/i.test(kp) || /^kw$/i.test(k)) score += 5;
+            if (/power|potenza/i.test(kp) || /power|potenza/i.test(k)) score += 3;
+            if (/active|instant|actual|real/i.test(kp)) score += 2;
+            if (keyBad) score -= 6;
+            score -= roundPenalty;
+
+            cand.push({ kp, k, valKw, score });
+          };
+
+          if (typeof v === 'number') {
+            pushNum(v);
+          } else if (typeof v === 'string') {
+            const mm = v.match(/-?\d+(?:[.,]\d+)?/);
+            if (mm) pushNum(Number(mm[0].replace(',', '.')));
+          }
+
+          if (v && typeof v === 'object') walk(v, p);
+        }
+      })(obj);
+
+      let list = cand;
+      const bestScore = Math.max(-Infinity, ...cand.map(c => c.score));
+      if (bestScore > 0) list = cand.filter(c => c.score >= 1);
+
+      const hasNonBad = list.some(c => !BAD_KEYS.test(c.kp) && !BAD_KEYS.test(c.k));
+      if (hasNonBad) list = list.filter(c => !BAD_KEYS.test(c.kp) && !BAD_KEYS.test(c.k));
+
+      list.sort((a, b) => b.score - a.score || b.kp.length - a.kp.length);
+
+      if (list.length) return list[0].valKw;
+    }
+  } catch {
+    // ignora, passa ai fallback
+  }
+
+  // 2) Fallback: primo numero plausibile nel testo, evitando 100 “nudo”
+  const any = raw.match(/-?\d+(?:[.,]\d+)?/g) || [];
+  for (const s of any) {
+    let n = Number(s.replace(',', '.'));
+    if (!Number.isFinite(n)) continue;
+    if (n === 100) continue;
+    if (n > 500) n = n / 1000; // W→kW
+    if (n >= 0 && n <= 200) return n;
+  }
+
+  throw new Error('Valore kW non trovato');
+}
+
+async function readInstantKwFromEnergy() {
+  const res = await axios.get(ENERGY_URL, {
+    timeout: ENERGY_TIMEOUT_MS,
+    responseType: 'text',
+    transformResponse: v => v,
+    validateStatus: () => true
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const kw = extractKwFromEnergyPayload(res.data);
+  if (!Number.isFinite(kw)) throw new Error('Valore non numerico');
+  return kw;
+}
+
+async function getInstantWithCacheEnergy() {
+  const now = Date.now();
+  if (now - energyCache.lastFetch <= ENERGY_CACHE_TTL_MS && energyCache.ts) {
+    return {
+      instant_kw: energyCache.value_kw,
+      ts: energyCache.ts,
+      unit: 'kW',
+      stale: (now - energyCache.lastOk) > ENERGY_STALE_AFTER_MS
+    };
+  }
+  energyCache.lastFetch = now;
+  try {
+    const kw = await readInstantKwFromEnergy();
+    energyCache.value_kw = kw;
+    energyCache.ts = new Date().toISOString();
+    energyCache.lastOk = Date.now();
+    return { instant_kw: kw, ts: energyCache.ts, unit: 'kW', stale: false };
+  } catch (e) {
+    if (energyCache.ts) {
+      return {
+        instant_kw: energyCache.value_kw,
+        ts: energyCache.ts,
+        unit: 'kW',
+        stale: (now - energyCache.lastOk) > ENERGY_STALE_AFTER_MS,
+        error: String(e?.message || e)
+      };
+    }
+    throw e;
+  }
+}
+
+
+
+// === PROTEK: istantanea potenza (proxy energy server 192.168.1.41) ===========
+app.get('/api/protek/instant', async (req, res) => {
+  try {
+    const nocache = String(req.query?.nocache || '').toLowerCase();
+    const bypass = (nocache === '1' || nocache === 'true');
+
+    const out = bypass
+      ? { instant_kw: await readInstantKwFromEnergy(), ts: new Date().toISOString(), unit: 'kW', stale: false }
+      : await getInstantWithCacheEnergy();
+
+    res.json(out);
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e), ts: new Date().toISOString() });
+  }
+});
 
 
 
@@ -1547,23 +1795,34 @@ app.post('/api/genera-commessa', (req, res) => {
     return res.status(400).json({ message: 'Manca la sorgente: duplicaDa oppure cartellaDaClonare.' });
   }
 
-  // 🔧 Ricavo prima codiceCommessaEff dai fallback (nome sorgente o report.json)
+  // 1) Determino subito la sorgente (prima di qualunque uso di sourceDir)
+let sourceDir = duplicaDa
+  ? (path.isAbsolute(duplicaDa) ? duplicaDa : path.join(percorsoCartella, duplicaDa))
+  : cartellaDaClonare;
+
+if (!sourceDir || !fs.existsSync(sourceDir)) {
+  return res.status(404).json({ message: 'Cartella sorgente non trovata.', sourceDir });
+}
+
+// 2) Ora posso derivare il codice commessa anche dal nome/REPORT della sorgente
+//    (accetta suffissi alfanumerici: C1234B, C1234-11, ecc.)
 let codiceCommessaEff = (codiceCommessa || '').trim();
 try {
   if (!codiceCommessaEff) {
     const baseSrc = path.basename(sourceDir);
-    // accetta anche lettere dopo i numeri (es. C1234A, C1234-11, ecc.)
     const mC = baseSrc.match(/_C([A-Za-z0-9\-]+)$/);
     if (mC) codiceCommessaEff = 'C' + mC[1];
 
-    if (!codiceCommessaEff && fs.existsSync(path.join(sourceDir, 'report.json'))) {
-      const rep = JSON.parse(fs.readFileSync(path.join(sourceDir, 'report.json'), 'utf8') || '{}');
-      if (rep && rep.codiceCommessa) codiceCommessaEff = String(rep.codiceCommessa).trim();
+    if (!codiceCommessaEff) {
+      const repPath = path.join(sourceDir, 'report.json');
+      if (fs.existsSync(repPath)) {
+        const rep = JSON.parse(fs.readFileSync(repPath, 'utf8') || '{}');
+        if (rep && rep.codiceCommessa) codiceCommessaEff = String(rep.codiceCommessa).trim();
+      }
     }
   }
-} catch {
-  // ignoro errori, manterrà stringa vuota
-}
+} catch { /* safe no-op */ }
+
 
 // 🔧 Solo dopo normalizzo i codici finali P/C
 const ensureCode = (val, letter) => {
@@ -1599,14 +1858,7 @@ if (!effC) effC = 'C';
     });
   }
 
-  // Sorgente copia
-  let sourceDir = duplicaDa
-    ? (path.isAbsolute(duplicaDa) ? duplicaDa : path.join(percorsoCartella, duplicaDa))
-    : cartellaDaClonare;
-
-  if (!sourceDir || !fs.existsSync(sourceDir)) {
-    return res.status(404).json({ message: 'Cartella sorgente non trovata.', sourceDir });
-  }
+  
 
   // Regola: se DUPLICO da una COMMESSA (duplicaDa) pretendo nome ..._P..._C...
   // Se invece sto usando un TEMPLATE generico (cartellaDaClonare), NON forzo il pattern.
@@ -2287,50 +2539,55 @@ app.get('/api/settimanali-disponibili', (req, res) => {
 // PROTEK – settings + CSV grezzi
 // ───────────────────────────────────────────────────────────────────────────────
 app.post('/api/protek/settings', (req, res) => {
-  const { monitorPath, pantografi, storicoConsumiUrl } = req.body;
+  const { monitorPath, pantografi, storicoConsumiUrl, settimanaJsonPath } = req.body;
   const dataDir = path.join(__dirname, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   const protekSettingsFile = path.join(dataDir, 'Proteksetting.json');
 
-  // normalizza pantografi a array
   const pantografiArr = Array.isArray(pantografi) ? pantografi : [];
   const storicoClean = typeof storicoConsumiUrl === 'string' ? storicoConsumiUrl.replace(/"/g, '').trim() : '';
+  const settimanaClean = typeof settimanaJsonPath === 'string' ? settimanaJsonPath.replace(/"/g, '').trim() : '';
 
   try {
-    const toSave = { monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean };
+    const toSave = { monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean, settimanaJsonPath: settimanaClean };
     fs.writeFileSync(protekSettingsFile, JSON.stringify(toSave, null, 2), 'utf8');
-    // 👉 ora il backend fa eco dei valori salvati
-    return res.json({ ok: true, monitorPath, pantografi: pantografiArr, storicoConsumiUrl: storicoClean });
-  } catch (err) {
-    return res.status(500).json({ error: err.toString() });
-  }
+    res.json({ ok: true, data: toSave });
+  } catch (e) { res.status(500).json({ ok: false, error: e?.message || String(e) }); }
 });
 
 app.get('/api/protek/settings', (req, res) => {
   const file = path.join(__dirname, 'data', 'Proteksetting.json');
-  if (!fs.existsSync(file)) return res.json({ monitorPath: '', pantografi: [], storicoConsumiUrl: '' });
+  if (!fs.existsSync(file)) {
+    return res.json({ monitorPath: '', settimanaJsonPath: '', pantografi: [], storicoConsumiUrl: '' });
+  }
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     res.json({
       monitorPath: data.monitorPath || '',
+      settimanaJsonPath: typeof data.settimanaJsonPath === 'string' ? data.settimanaJsonPath.replace(/\"/g, '').trim() : '',
       pantografi: Array.isArray(data.pantografi) ? data.pantografi : [],
       storicoConsumiUrl: typeof data.storicoConsumiUrl === 'string' ? data.storicoConsumiUrl.replace(/\"/g, '').trim() : ''
     });
-  } catch { res.json({ monitorPath: '', pantografi: [], storicoConsumiUrl: '' }); }
+  } catch {
+    res.json({ monitorPath: '', settimanaJsonPath: '', pantografi: [], storicoConsumiUrl: '' });
+  }
 });
 
 function readProtekSettings() {
   const file = path.join(__dirname, 'data', 'Proteksetting.json');
- if (!fs.existsSync(file)) return { monitorPath: '', pantografi: [], storicoConsumiUrl: '' };
+  if (!fs.existsSync(file)) {
+    return { monitorPath: '', settimanaJsonPath: '', pantografi: [], storicoConsumiUrl: '' };
+  }
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     return {
       monitorPath: data.monitorPath || '',
+      settimanaJsonPath: typeof data.settimanaJsonPath === 'string' ? data.settimanaJsonPath.replace(/\"/g, '').trim() : '',
       pantografi: Array.isArray(data.pantografi) ? data.pantografi : [],
       storicoConsumiUrl: typeof data.storicoConsumiUrl === 'string' ? data.storicoConsumiUrl.replace(/\"/g, '').trim() : ''
     };
   } catch {
-    return { monitorPath: '', pantografi: [], storicoConsumiUrl: '' };
+    return { monitorPath: '', settimanaJsonPath: '', pantografi: [], storicoConsumiUrl: '' };
   }
 }
 function detectDelimiter(firstLine) { const sc = (firstLine.match(/;/g) || []).length; const cc = (firstLine.match(/,/g) || []).length; return sc >= cc ? ';' : ','; }
@@ -2642,15 +2899,12 @@ app.get('/api/protek/jobs', (req, res) => {
   res.json({ jobs: out, meta: { monitorPath, generatedAt: new Date().toISOString() } });
 });
 
+// ───────────────────────────────────────────────────────────────────────────────
+// PROTEK: builder riutilizzabile (legge CSV e costruisce array "programs")
+// ───────────────────────────────────────────────────────────────────────────────
+function buildProgramsFromCsv(monitorPath) {
+  if (!monitorPath || !fs.existsSync(monitorPath)) return [];
 
-// === PROTEK: riepilogo PROGRAMMI arricchito (operatori, macchine, ordini, pezzi, allarmi, tempi) ===
-app.get('/api/protek/programs', (req, res) => {
-  const { monitorPath } = readProtekSettings();
-  if (!monitorPath || !fs.existsSync(monitorPath)) {
-    return res.status(404).json({ error: 'Percorso di monitoraggio Protek non impostato o non esistente.' });
-  }
-
-  // CSV necessari
   const PART_PROGRAMS               = loadCSVFrom(monitorPath, 'PART_PROGRAMS.csv');
   const PART_PROGRAM_WORKINGS       = loadCSVFrom(monitorPath, 'PART_PROGRAM_WORKINGS.csv');
   const PART_PROGRAM_WORKING_LINES  = loadCSVFrom(monitorPath, 'PART_PROGRAM_WORKING_LINES.csv');
@@ -2662,11 +2916,9 @@ app.get('/api/protek/programs', (req, res) => {
   const NESTINGS_ORDERS             = loadCSVFrom(monitorPath, 'NESTINGS_ORDERS.csv');
   const ALARMS                      = loadCSVFrom(monitorPath, 'ALARMS.csv');
 
-  // Util
   const toNum = (v) => {
     if (v === undefined || v === null || v === '') return 0;
-    const s = String(v).replace(',', '.');
-    const n = Number(s);
+    const s = String(v).replace(',', '.'); const n = Number(s);
     return Number.isFinite(n) ? n : 0;
   };
   const parseTs = (v) => {
@@ -2680,7 +2932,6 @@ app.get('/api/protek/programs', (req, res) => {
     return s === '1' || s === 'true' || s === 'yes' || s === 'y' || s === 't';
   };
 
-  // Mappe di supporto
   const userNameById = new Map(USERS.map(u => [String(u.ID), (u.USERNAME || u.NAME || u.LOGIN || '').trim()]));
   const cfgNameById  = new Map(WORK_CONFIGURATIONS.map(c => [String(c.ID), (c.NAME || c.CODE || '').trim()]));
   const jobById      = new Map(JOBS.map(j => [String(j.ID), j]));
@@ -2689,7 +2940,6 @@ app.get('/api/protek/programs', (req, res) => {
   const orderById    = new Map(JOB_ORDERS.map(o => [String(o.ID), o]));
   const jobIdByOrder = new Map(JOB_ORDERS.map(o => [String(o.ID), String(o.JOB_ID)]));
 
-  // Nesting: pezzi per ordine
   const piecesByOrderId = new Map();
   for (const no of NESTINGS_ORDERS) {
     const oid = String(no.JOB_ORDER_ID);
@@ -2697,7 +2947,6 @@ app.get('/api/protek/programs', (req, res) => {
     piecesByOrderId.set(oid, (piecesByOrderId.get(oid) || 0) + pieces);
   }
 
-  // Lines: tempo macchina per WORKING
   const machineSecondsByWorkingId = new Map();
   for (const line of PART_PROGRAM_WORKING_LINES) {
     const wid = String(line.PART_PROGRAM_WORKING_ID || line.PROGRAM_WORKING_ID || line.WORKING_ID || line.ID_WORKING || '');
@@ -2706,7 +2955,6 @@ app.get('/api/protek/programs', (req, res) => {
     machineSecondsByWorkingId.set(wid, (machineSecondsByWorkingId.get(wid) || 0) + sec);
   }
 
-  // Allarmi per WORKING
   const alarmsByWorkingId = new Map();
   for (const a of ALARMS) {
     const wid = String(a.PROGRAM_WORKING_ID || a.WORKING_ID || a.PART_PROGRAM_WORKING_ID || '');
@@ -2714,7 +2962,6 @@ app.get('/api/protek/programs', (req, res) => {
     alarmsByWorkingId.set(wid, (alarmsByWorkingId.get(wid) || 0) + 1);
   }
 
-  // Raggruppo workings per programma
   const workingsByProgram = new Map();
   for (const w of PART_PROGRAM_WORKINGS) {
     const pid = String(w.PART_PROGRAM_ID);
@@ -2722,7 +2969,6 @@ app.get('/api/protek/programs', (req, res) => {
     workingsByProgram.get(pid).push(w);
   }
 
-  // Costruisco output
   const programs = PART_PROGRAMS.map(pp => {
     const pid   = String(pp.ID);
     const code  = pp.CODE || '';
@@ -2732,7 +2978,6 @@ app.get('/api/protek/programs', (req, res) => {
     const workings = workingsByProgram.get(pid) || [];
     const numWorkings = workings.length;
 
-    // operatori/macchine
     const operatorIds = new Set();
     const cfgIds      = new Set();
     const orderIds    = new Set();
@@ -2740,7 +2985,6 @@ app.get('/api/protek/programs', (req, res) => {
     let minStart = null, maxEnd = null;
     let anyEnded = false, anyCompleted = false, anyStarted = false, anyLoaded = false;
 
-    // aggregazioni per workings
     let machineSeconds = 0;
     let alarmsCount = 0;
 
@@ -2754,8 +2998,8 @@ app.get('/api/protek/programs', (req, res) => {
       const dCompleted = parseTs(w.DATE_COMPLETED || w.END_DATE || w.COMPLETED_DATE);
       const dLast      = parseTs(w.LAST_DATE);
 
-      if (dLoaded)   anyLoaded = true;
-      if (truthy(w.STARTED) || dStarted)   anyStarted = true;
+      if (dLoaded) anyLoaded = true;
+      if (truthy(w.STARTED) || dStarted) anyStarted = true;
       if (truthy(w.COMPLETED) || dCompleted) anyCompleted = true;
       if (truthy(w.ENDED)) anyEnded = true;
 
@@ -2777,7 +3021,6 @@ app.get('/api/protek/programs', (req, res) => {
       }
     }
 
-    // stato “derivato”
     let latestState = '';
     if (anyEnded) latestState = 'ENDED';
     else if (anyCompleted) latestState = 'FINISHED';
@@ -2785,14 +3028,12 @@ app.get('/api/protek/programs', (req, res) => {
     else if (anyLoaded) latestState = 'QUEUED';
     else latestState = '';
 
-    // cliente: via primo ordine -> job -> customer
     let customer = '';
     const firstOrderId = orderIds.values().next().value;
     if (firstOrderId) {
       const jobId = jobIdByOrder.get(String(firstOrderId));
       const job   = jobId ? jobById.get(String(jobId)) : null;
       if (job) {
-        // prova sia stringa “CUSTOMER” sia CUSTOMERS.ID
         customer = (job.CUSTOMER || '').trim();
         if (!customer && (job.CUSTOMER_ID || job.CUSTOMERCODE || job.CUSTOMER_CODE)) {
           const cid = String(job.CUSTOMER_ID || job.CUSTOMERCODE || job.CUSTOMER_CODE);
@@ -2801,8 +3042,6 @@ app.get('/api/protek/programs', (req, res) => {
       }
     }
 
-    // qty ordinate + pezzi nesting su tutti gli ordini collegati
-    let ordersCount = orderIds.size;
     let qtyOrdered  = 0;
     let piecesFromNestings = 0;
     for (const oid of orderIds) {
@@ -2815,13 +3054,9 @@ app.get('/api/protek/programs', (req, res) => {
     const startTime = (minStart || creationDate) ? (minStart || creationDate).toISOString() : '';
     const endTime   = maxEnd ? maxEnd.toISOString() : '';
 
-    // durata “visuale” come fallback se non abbiamo machineSeconds
     let durationSeconds = 0;
-    if (machineSeconds > 0) {
-      durationSeconds = Math.floor(machineSeconds);
-    } else if (minStart && maxEnd) {
-      durationSeconds = Math.max(0, Math.floor((maxEnd - minStart) / 1000));
-    }
+    if (machineSeconds > 0) durationSeconds = Math.floor(machineSeconds);
+    else if (minStart && maxEnd) durationSeconds = Math.max(0, Math.floor((maxEnd - minStart) / 1000));
 
     const operators = [...operatorIds].map(id => userNameById.get(id) || id).filter(Boolean).join(', ');
     const machines  = [...cfgIds].map(id => cfgNameById.get(id) || id).filter(Boolean).join(', ');
@@ -2831,29 +3066,180 @@ app.get('/api/protek/programs', (req, res) => {
       code,
       description: desc,
       path,
-
       customer,
       latestState,
-
       startTime,
       endTime,
-      durationSeconds,      // sec
-      machineSeconds,       // sec (da working_lines se presente)
-
+      durationSeconds,
+      machineSeconds,
       numWorkings,
       operators,
       machines,
-
-      ordersCount,
+      ordersCount: orderIds.size,
       qtyOrdered,
       piecesFromNestings,
-
       alarmsCount
     };
   });
 
+  return programs;
+}
+
+
+
+app.get('/api/protek/programs', (req, res) => {
+  const { monitorPath } = readProtekSettings();
+  if (!monitorPath || !fs.existsSync(monitorPath)) {
+    return res.status(404).json({ error: 'Percorso di monitoraggio Protek non impostato o non esistente.' });
+  }
+  const programs = buildProgramsFromCsv(monitorPath);
   res.json({ programs, meta: { monitorPath, generatedAt: new Date().toISOString() } });
 });
+
+
+// ───────────────────────────────────────────────────────────────────────────────
+// PROTEK: generatore file settimanale Protek_<week>_<year>.json
+// ───────────────────────────────────────────────────────────────────────────────
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+function getISOWeekYear(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  return d.getUTCFullYear();
+}
+
+function generaSettimanaProtek(week, year) {
+  const { monitorPath, settimanaJsonPath } = readProtekSettings();
+  if (!monitorPath || !fs.existsSync(monitorPath)) {
+    throw new Error('monitorPath Protek non impostato o non esistente.');
+  }
+  if (!settimanaJsonPath || typeof settimanaJsonPath !== 'string') {
+    throw new Error('settimanaJsonPath non impostato nelle impostazioni Protek.');
+  }
+
+  const programs = buildProgramsFromCsv(monitorPath);
+
+  const inWeek = (ts) => {
+    const t = ts ? new Date(ts) : null;
+    if (!t || isNaN(t)) return false;
+    return getISOWeek(t) === Number(week) && getISOWeekYear(t) === Number(year);
+  };
+
+  const rows = programs.filter(p => inWeek(p.startTime || p.endTime));
+
+  // base di salvataggio: se è una directory uso quella; altrimenti la dirname
+  let base;
+  try {
+    if (fs.existsSync(settimanaJsonPath) && fs.statSync(settimanaJsonPath).isDirectory()) {
+      base = settimanaJsonPath;
+    } else {
+      base = path.dirname(settimanaJsonPath);
+    }
+  } catch {
+    base = path.dirname(settimanaJsonPath);
+  }
+  if (!fs.existsSync(base)) fs.mkdirSync(base, { recursive: true });
+
+  const outFile = path.join(base, `Protek_${week}_${year}.json`);
+  fs.writeFileSync(outFile, JSON.stringify(rows, null, 2), 'utf8');
+
+  console.log(`[PROTEK] Settimana ${week}/${year}: salvato ${rows.length} righe in`, outFile);
+  return { outFile, count: rows.length };
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// PROTEK: endpoint settimanali
+// ───────────────────────────────────────────────────────────────────────────────
+
+// Rigenera il file della settimana/anno passati (default: settimana/anno correnti)
+app.post('/api/protek/rigenera-report-settimanale', (req, res) => {
+  try {
+    const now = new Date();
+    const week = Number(req.query.week ?? req.body?.week ?? getISOWeek(now));
+    const year = Number(req.query.year ?? req.body?.year ?? getISOWeekYear(now));
+    const { outFile, count } = generaSettimanaProtek(week, year);
+    res.json({ ok: true, week, year, outFile, count });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// Elenco file Protek_<week>_<year>.json disponibili
+app.get('/api/protek/settimanali-disponibili', (req, res) => {
+  const { settimanaJsonPath } = readProtekSettings();
+  const base = (settimanaJsonPath && fs.existsSync(settimanaJsonPath) && fs.statSync(settimanaJsonPath).isDirectory())
+    ? settimanaJsonPath
+    : (settimanaJsonPath ? path.dirname(settimanaJsonPath) : path.join(__dirname, 'data'));
+
+  if (!fs.existsSync(base)) return res.json([]);
+
+  const files = fs.readdirSync(base).filter(f => /^Protek_(\d+)_(\d+)\.json$/.test(f));
+  const weeks = files.map(f => {
+    const m = f.match(/^Protek_(\d+)_(\d+)\.json$/);
+    return m ? { week: Number(m[1]), year: Number(m[2]), filename: f } : null;
+  }).filter(Boolean).sort((a, b) => b.year - a.year || b.week - a.week);
+
+  res.json(weeks);
+});
+
+// Ritorna le righe della settimana richiesta (default: settimana/anno correnti)
+// Legge i file Protek_<week>_<year>.json in settimanaJsonPath (o dirname se è un file)
+app.get('/api/protek/storico-settimana', (req, res) => {
+  try {
+    const now = new Date();
+    const week = Number(req.query.week ?? getISOWeek(now));
+    const year = Number(req.query.year ?? getISOWeekYear(now));
+
+    const { settimanaJsonPath } = readProtekSettings();
+    const base = (
+      settimanaJsonPath &&
+      fs.existsSync(settimanaJsonPath) &&
+      fs.statSync(settimanaJsonPath).isDirectory()
+    )
+      ? settimanaJsonPath
+      : (settimanaJsonPath ? path.dirname(settimanaJsonPath) : path.join(__dirname, 'data'));
+
+    if (!fs.existsSync(base)) return res.json([]);
+
+    const filePath = path.join(base, `Protek_${week}_${year}.json`);
+    if (!fs.existsSync(filePath)) return res.json([]);
+
+    try {
+      const rows = JSON.parse(fs.readFileSync(filePath, 'utf8') || '[]');
+      return res.json(Array.isArray(rows) ? rows : []);
+    } catch {
+      return res.json([]);
+    }
+  } catch (e) {
+    return res.status(500).json({ ok:false, error: e?.message || String(e) });
+  }
+});
+
+// Rigenera un range di settimane per un anno
+app.post('/api/protek/rigenera-range', (req, res) => {
+  try {
+    const year = Number(req.body?.year);
+    const fromWeek = Number(req.body?.fromWeek);
+    const toWeek = Number(req.body?.toWeek);
+    if (!year || !fromWeek || !toWeek || fromWeek > toWeek) {
+      return res.status(400).json({ ok:false, error: 'Parametri year, fromWeek, toWeek non validi' });
+    }
+    const results = [];
+    for (let w = fromWeek; w <= toWeek; w++) {
+      const r = generaSettimanaProtek(w, year);
+      results.push({ week: w, ...r });
+    }
+    res.json({ ok:true, year, results });
+  } catch (e) {
+    res.status(500).json({ ok:false, error: e?.message || String(e) });
+  }
+});
+
+
 
 // ───────────────────────────────────────────────────────────────────────────────
 // WebSocket
@@ -2887,6 +3273,20 @@ wss.on('connection', (ws) => {
     }
   });
 });
+
+// Alias: compatibilità con frontend che chiamano /api/protek/rigenera-settimana
+app.post('/api/protek/rigenera-settimana', (req, res) => {
+  try {
+    const now = new Date();
+    const week = Number(req.query.week ?? req.body?.week ?? getISOWeek(now));
+    const year = Number(req.query.year ?? req.body?.year ?? getISOWeekYear(now));
+    const { outFile, count } = generaSettimanaProtek(week, year);
+    res.json({ ok: true, week, year, outFile, count });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Avvio

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Protek – Potenza istantanea</title>
+  <style>
+    :root{
+      --bg:#0f1720;--card:#121a26;--muted:#94a3b8;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--text:#e5e7eb;
+      --radius:16px;
+    }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
+    .wrap{display:grid;place-items:center;min-height:100%;}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.25);width:min(980px,92vw);padding:28px 28px 26px;}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;}
+    .title{display:flex;align-items:center;gap:10px;font-weight:600}
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+    .dot.err{background:var(--err);box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+    .btn{border:0;cursor:pointer;border-radius:12px;background:#1f2a37;color:#cbd5e1;padding:8px 12px}
+    .btn:hover{filter:brightness(1.06)}
+    .value{font-size:86px;line-height:1.05;font-weight:700;margin:18px 0 8px}
+    .meta{font-size:14px;color:var(--muted)}
+    .unit{margin-right:10px}
+    /* Compact mode */
+    .compact .card{padding:16px 16px 14px}
+    .compact .value{font-size:56px;margin:8px 0 4px}
+    .compact .btn{padding:6px 10px;border-radius:10px}
+    .compact .title{font-size:15px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="card">
+      <div class="header">
+        <div class="title">
+          <span class="dot" id="dot" aria-label="stato"></span>
+          <span id="title">Protek – Potenza istantanea</span>
+        </div>
+        <button class="btn" id="refreshBtn" type="button">Aggiorna ora</button>
+      </div>
+      <div class="value" id="value">–</div>
+      <div class="meta">
+        <span class="unit" id="unit">Unità: kW</span>
+        <span id="ts">ts: –</span> | <span id="stale">stale: –</span>
+        <span id="msg" style="margin-left:8px;"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const qs = new URLSearchParams(location.search);
+      const refreshMs = Math.max(0, (parseInt(qs.get('refresh'),10)||5)) * 1000;
+      const compact = qs.get('compact') === '1' || qs.get('compact') === 'true';
+      const customTitle = qs.get('title');
+      const unitLabel = qs.get('unit') || 'kW';
+
+      const el = {
+        card: document.getElementById('card'),
+        title: document.getElementById('title'),
+        dot: document.getElementById('dot'),
+        value: document.getElementById('value'),
+        unit: document.getElementById('unit'),
+        ts: document.getElementById('ts'),
+        stale: document.getElementById('stale'),
+        msg: document.getElementById('msg'),
+        btn: document.getElementById('refreshBtn')
+      };
+
+      if (compact) document.body.classList.add('compact');
+      if (customTitle) el.title.textContent = customTitle;
+      el.unit.textContent = 'Unità: ' + unitLabel;
+
+      let timer = null, busy = false;
+
+      function setState(kind, message){
+        el.dot.className = 'dot' + (kind ? ' ' + kind : '');
+        el.msg.textContent = message || '';
+      }
+
+      function fmtTs(iso){
+        try{
+          if(!iso) return '–';
+          // mostro ISO, ma se vuoi locale: usa toLocaleString('it-IT')
+          return iso;
+        }catch{ return iso || '–';}
+      }
+
+      async function load(){
+        if (busy) return;
+        busy = true;
+        setState('warn', 'carico…');
+        try{
+          const res = await fetch('/api/protek/instant', { cache: 'no-store' });
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const data = await res.json();
+
+          const kw = Number(data.instant_kw);
+          el.value.textContent = Number.isFinite(kw) ? kw : '—';
+          el.ts.textContent = 'ts: ' + fmtTs(data.ts);
+          el.stale.textContent = 'stale: ' + (data.stale ? 'true' : 'false');
+
+          if (data.stale) setState('warn', 'dato non aggiornato');
+          else setState('', '');
+        }catch(err){
+          setState('err', 'errore: ' + (err.message||String(err)));
+          el.value.textContent = '—';
+          el.ts.textContent = 'ts: –';
+          el.stale.textContent = 'stale: –';
+        }finally{
+          busy = false;
+        }
+      }
+
+      function startAuto(){
+        if (timer) clearInterval(timer);
+        if (refreshMs > 0) timer = setInterval(load, refreshMs);
+      }
+
+      el.btn.addEventListener('click', load);
+      load();
+      startAuto();
+
+      // opzionale: aggiorna al rientro nella tab
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) load();
+      });
+    })();
+  </script>
+</body>
+</html>

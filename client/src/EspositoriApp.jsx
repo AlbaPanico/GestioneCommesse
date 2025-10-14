@@ -580,7 +580,8 @@ fineProduzioneEffettiva: c.fineProduzioneEffettiva || null,
         console.log("Dettagli ricevuti:", commessa);
         setCliente(commessa.cliente ?? "");
         setBrand(commessa.brand || "");
-        setNomeProdotto(commessa.nomeProdotto || "");
+        setNomeProdotto((commessa.nomeProdotto || "").toLowerCase().replace(/[^a-z0-9 ]/g, ""));
+
         setQuantita(commessa.quantita ?? "");
         setCodiceProgetto(String(commessa.codiceProgetto || "").replace(/^[Pp]/, '').replace(/\D+/g, ''));
 
@@ -671,13 +672,15 @@ const handleDuplicateClick = () => {
     const m = folderName.match(/^([^_]+)_([^_]+)_(P[^_]+)_(C[^_]+)$/i);
     if (m) {
   setBrand(m[1]);
-  setNomeProdotto(m[2]);
+  setNomeProdotto(m[2].toLowerCase().replace(/[^a-z0-9 ]/g, ""));
+
   setCodiceProgetto(m[3].replace(/^[Pp]/, '').replace(/\D+/g, '')); // solo numeri
   setCodiceCommessa(m[4].toUpperCase());
 } else {
   const parts = folderName.split('_');
   setBrand(parts[0] || '');
-  setNomeProdotto(parts[1] || '');
+  setNomeProdotto((parts[1] || '').toLowerCase().replace(/[^a-z0-9 ]/g, ""));
+
   setCodiceProgetto(String(parts[2] || '').replace(/^[Pp]/, '').replace(/\D+/g, '')); // solo numeri
   setCodiceCommessa((parts[3] || '').toUpperCase());
 }
@@ -692,7 +695,8 @@ const handleDuplicateClick = () => {
         const commessa = await detRes.json();
         setCliente(prev => prev || commessa.cliente || ""); // non sovrascrivo se già impostato
         setBrand(prev => prev || commessa.brand || "");
-        setNomeProdotto(prev => prev || commessa.nomeProdotto || "");
+        setNomeProdotto(prev => prev || (commessa.nomeProdotto || "").toLowerCase().replace(/[^a-z0-9 ]/g, ""));
+
         setCodiceProgetto(prev => prev || String(commessa.codiceProgetto || "").replace(/^[Pp]/, '').replace(/\D+/g, ''));
 
         setCodiceCommessa(prev => prev || commessa.codiceCommessa || "");
@@ -786,18 +790,10 @@ const handleSubmit = async (e) => {
     sovrascrivere: false,
   };
 
-  // 4) Invia duplicaDa SOLO se rispetta il pattern BRAND_PRODOTTO_Pxxx_Cyyy
+  // 4) Invia SEMPRE duplicaDa se presente; la validazione la fa il server
 const dup = (typeof duplicaDa === "string" ? duplicaDa.trim() : "");
-const dupPattern = /^[^_]+_[^_]+_P[^_]+_C[^_]+$/i;
+const requestData = dup ? { ...baseData, duplicaDa: dup } : baseData;
 
-// Se duplicaDa è presente ma NON valido, ignoralo per non attivare la duplicazione lato server
-const requestData = (dup && dupPattern.test(dup))
-  ? { ...baseData, duplicaDa: dup }
-  : baseData;
-
-if (dup && !dupPattern.test(dup)) {
-  console.warn("[handleSubmit] duplicaDa ignorato perché non conforme al pattern richiesto:", dup);
-}
 
 console.log("Request Data:", requestData);
 
@@ -1182,7 +1178,12 @@ ${linkCartella}
   type="text"
   className="w-full rounded border px-2 py-1"
   value={nomeProdotto}
-  onChange={(e) => setNomeProdotto(sanitizeAlnumSpace(e.target.value, { upper: false }))}
+  onChange={(e) =>
+  setNomeProdotto(
+    e.target.value.toLowerCase().replace(/[^a-z0-9 ]/g, "")
+  )
+}
+
   required
 />
 
@@ -1266,7 +1267,12 @@ ${linkCartella}
                       <Input
   type="text"
   value={nomeProdotto || ""}
-  onChange={(e) => setNomeProdotto(sanitizeAlnumSpace(e.target.value, { upper: false }))}
+  onChange={(e) =>
+  setNomeProdotto(
+    e.target.value.toLowerCase().replace(/[^a-z0-9 ]/g, "")
+  )
+}
+
   className="bg-white rounded border px-2 py-1"
 />
 

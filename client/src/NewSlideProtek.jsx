@@ -57,8 +57,10 @@ export default function NewSlideProtek({ onSaved, onClose, asPanel, server }) {
 
   // settings
   const [monitorPath, setMonitorPath] = useState("");   // UNC folder con i CSV
-  const [pantografi, setPantografi] = useState([]);     // opzionale
+const [settimanaJsonPath, setSettimanaJsonPath] = useState(""); // <- nuovo: percorso salvataggio Settimana.json
+const [pantografi, setPantografi] = useState([]);     // opzionale
 const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
+
 
   // data solo per la vista “pagina autonoma”
   const [jobs, setJobs] = useState([]);
@@ -77,9 +79,12 @@ const [storicoConsumiUrl, setStoricoConsumiUrl] = useState("");
     }
     const s = r.data || {};
 const storicoRaw = typeof s.storicoConsumiUrl === "string" ? s.storicoConsumiUrl : "";
-    const storicoClean = storicoRaw.replace(/"/g, "").trim();
-    setMonitorPath(s.monitorPath || "");
-    setPantografi(Array.isArray(s.pantografi) ? s.pantografi : []);
+const storicoClean = storicoRaw.replace(/"/g, "").trim();
+
+setMonitorPath(s.monitorPath || "");
+setSettimanaJsonPath(typeof s.settimanaJsonPath === "string" ? s.settimanaJsonPath : ""); // <- nuovo
+setPantografi(Array.isArray(s.pantografi) ? s.pantografi : []);
+
     
   }
 
@@ -252,7 +257,14 @@ const storicoRaw = typeof s.storicoConsumiUrl === "string" ? s.storicoConsumiUrl
     }
 
     const storicoClean = (storicoConsumiUrl || "").replace(/"/g, "").trim();
-    const body = { monitorPath: monitorPath.trim(), pantografi, storicoConsumiUrl: storicoClean };
+const settimanaClean = (settimanaJsonPath || "").replace(/"/g, "").trim();
+const body = {
+  monitorPath: monitorPath.trim(),
+  settimanaJsonPath: settimanaClean, // <- nuovo
+  pantografi,
+  storicoConsumiUrl: storicoClean
+};
+
 
     try {
       setSaving(true);
@@ -398,8 +410,30 @@ const storicoRaw = typeof s.storicoConsumiUrl === "string" ? s.storicoConsumiUrl
             )}
 
             <p className="mt-2 text-xs text-gray-500">
-              Inserisci il percorso UNC dove si trovano i file CSV di Protek.
-            </p>
+  Inserisci il percorso UNC dove si trovano i file CSV di Protek.
+</p>
+
+{/* ───────── nuovo campo: Percorso salvataggio Settimana.json ───────── */}
+<div className="mt-4">
+  <label className="block text-sm font-medium">
+    Percorso salvataggio Settimana.json
+  </label>
+  <input
+    type="text"
+    className="mt-1 w-full border rounded-lg p-2 font-mono"
+    placeholder="C:\\Percorso\\alla\\cartella\\Settimana.json  oppure  \\\\server\\share\\...\\Settimana.json"
+    value={settimanaJsonPath}
+    onChange={(e) => {
+      setSuccess("");
+      setSettimanaJsonPath(e.target.value);
+    }}
+    disabled={saving}
+  />
+  <p className="mt-1 text-xs text-gray-500">
+    Indica il file dove salvare il riepilogo settimanale generato dal sistema.
+  </p>
+</div>
+
           </div>
 
  <div className="mt-4">
@@ -694,8 +728,30 @@ const storicoRaw = typeof s.storicoConsumiUrl === "string" ? s.storicoConsumiUrl
                 )}
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Inserisci il percorso UNC dove si trovano i file CSV di Protek.
-                </p>
+  Inserisci il percorso UNC dove si trovano i file CSV di Protek.
+</p>
+
+{/* ───────── nuovo campo: Percorso salvataggio Settimana.json ───────── */}
+<div className="mt-4">
+  <label className="block text-sm font-medium">
+    Percorso salvataggio Settimana.json
+  </label>
+  <input
+    type="text"
+    className="mt-1 w-full border rounded-lg p-2 font-mono"
+    placeholder="C:\\Percorso\\alla\\cartella\\Settimana.json  oppure  \\\\server\\share\\...\\Settimana.json"
+    value={settimanaJsonPath}
+    onChange={(e) => {
+      setSuccess("");
+      setSettimanaJsonPath(e.target.value);
+    }}
+    disabled={saving}
+  />
+  <p className="mt-1 text-xs text-gray-500">
+    Indica il file dove salvare il riepilogo settimanale generato dal sistema.
+  </p>
+</div>
+
               </div>
 
   <div className="mt-4">

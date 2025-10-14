@@ -17,5 +17,6 @@
       "code": ""
     }
   ],
-  "storicoConsumiUrl": "http://192.168.1.41/wsmeasure/big?language=it"
+  "storicoConsumiUrl": "",
+  "settimanaJsonPath": "\\\\192.168.1.248\\time dati\\ARCHIVIO TECNICO\\Esportazioni 4.0\\PROTEK\\Settim"
 }
