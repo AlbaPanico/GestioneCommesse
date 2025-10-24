@@ -729,7 +729,8 @@ function extractKwFromEnergyPayload(raw) {
 
             if (num === 100 && !keyOk) return;
 
-            const roundPenalty = (!keyOk && (num === 0 || num === 100)) ? 2 : 0;
+            const roundPenalty = (!keyOk && (num === 0 || num === 1 || num === 100)) ? 2 : 0;
+
 
             let valKw = num;
             if (num > 500) valKw = num / 1000; // W→kW
@@ -771,15 +772,19 @@ function extractKwFromEnergyPayload(raw) {
     // ignora, passa ai fallback
   }
 
-  // 2) Fallback: primo numero plausibile nel testo, evitando 100 “nudo”
-  const any = raw.match(/-?\d+(?:[.,]\d+)?/g) || [];
-  for (const s of any) {
-    let n = Number(s.replace(',', '.'));
-    if (!Number.isFinite(n)) continue;
-    if (n === 100) continue;
-    if (n > 500) n = n / 1000; // W→kW
-    if (n >= 0 && n <= 200) return n;
-  }
+  // 2) Fallback: primo numero plausibile nel testo, evitando 0/1/100 “nudi”
+const any = raw.match(/-?\d+(?:[.,]\d+)?/g) || [];
+for (const s of any) {
+  let n = Number(s.replace(',', '.'));
+  if (!Number.isFinite(n)) continue;
+
+  // evita numeri sospetti se non accompagnati da contesto
+  if (n === 0 || n === 1 || n === 100) continue;
+
+  if (n > 500) n = n / 1000; // W→kW
+  if (n >= 0 && n <= 200) return n;
+}
+
 
   throw new Error('Valore kW non trovato');
 }
@@ -799,9 +804,26 @@ async function readInstantKwFromEnergy() {
   return kw;
 }
 
-async function getInstantWithCacheEnergy() {
+
+
+
+// === PROTEK: istantanea potenza (proxy energy server 192.168.1.41) ===========
+app.get('/api/protek/instant', async (req, res) => {
+  const force = String(req.query?.nocache || '').trim();
+  const noCache = (force === '1') || /^true$/i.test(force);
+  try {
+    const out = await getInstantWithCacheEnergy({ force: noCache });
+    res.json(out);
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e), ts: new Date().toISOString() });
+  }
+});
+
+async function getInstantWithCacheEnergy(opts = {}) {
+  const force = !!opts.force;
   const now = Date.now();
-  if (now - energyCache.lastFetch <= ENERGY_CACHE_TTL_MS && energyCache.ts) {
+
+  if (!force && (now - energyCache.lastFetch <= ENERGY_CACHE_TTL_MS) && energyCache.ts) {
     return {
       instant_kw: energyCache.value_kw,
       ts: energyCache.ts,
@@ -809,6 +831,7 @@ async function getInstantWithCacheEnergy() {
       stale: (now - energyCache.lastOk) > ENERGY_STALE_AFTER_MS
     };
   }
+
   energyCache.lastFetch = now;
   try {
     const kw = await readInstantKwFromEnergy();
@@ -829,24 +852,6 @@ async function getInstantWithCacheEnergy() {
     throw e;
   }
 }
-
-
-
-// === PROTEK: istantanea potenza (proxy energy server 192.168.1.41) ===========
-app.get('/api/protek/instant', async (req, res) => {
-  try {
-    const nocache = String(req.query?.nocache || '').toLowerCase();
-    const bypass = (nocache === '1' || nocache === 'true');
-
-    const out = bypass
-      ? { instant_kw: await readInstantKwFromEnergy(), ts: new Date().toISOString(), unit: 'kW', stale: false }
-      : await getInstantWithCacheEnergy();
-
-    res.json(out);
-  } catch (e) {
-    res.status(502).json({ error: String(e?.message || e), ts: new Date().toISOString() });
-  }
-});
 
 
 
@@ -3086,6 +3091,193 @@ function buildProgramsFromCsv(monitorPath) {
 }
 
 
+// [GIALLA - riga precedente] ---------------------------------------------------
+// === PROTEK: Realtime Updater per file settimanali ============================
+
+// Chiave univoca per le righe dei file settimanali (programma Protek)
+function _keyOfProgramRow(p) {
+  const id = (p && p.id) ? String(p.id) : '';
+  if (id) return `id:${id}`;
+  const code = (p && p.code) ? String(p.code) : '';
+  const st   = (p && p.startTime) ? String(p.startTime) : '';
+  return `code:${code}|start:${st}`;
+}
+
+// Upsert non-distruttivo con preservazione consumo_kwh (mai decrescente)
+function upsertSettimanaProtek(week, year, rows, baseDir) {
+  if (!Number.isFinite(Number(week)) || !Number.isFinite(Number(year))) {
+    return { ok: false, error: 'week/year non validi' };
+  }
+
+  const base = (fs.existsSync(baseDir) && fs.statSync(baseDir).isDirectory())
+    ? baseDir
+    : path.dirname(baseDir);
+  if (!fs.existsSync(base)) fs.mkdirSync(base, { recursive: true });
+
+  const outFile = path.join(base, `Protek_${week}_${year}.json`);
+  let existing = [];
+
+  if (fs.existsSync(outFile)) {
+    try {
+      const raw = fs.readFileSync(outFile, 'utf8');
+      existing = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(existing)) existing = [];
+    } catch {
+      existing = [];
+    }
+  }
+
+  // map: key -> riga esistente
+  const map = new Map();
+  for (const r of existing) map.set(_keyOfProgramRow(r), r);
+
+  // merge: se arriva una riga nuova, preservo campi + consumo_kwh massimo
+  for (const incoming of rows) {
+    const key = _keyOfProgramRow(incoming);
+    const prev = map.get(key) || {};
+    const prevKwh = Number.isFinite(+prev.consumo_kwh) ? +prev.consumo_kwh : undefined;
+    const nextKwh = Number.isFinite(+incoming.consumo_kwh) ? +incoming.consumo_kwh : undefined;
+
+    const merged = { ...prev, ...incoming };
+    if (prevKwh !== undefined || nextKwh !== undefined) {
+      const safeMax = Math.max(prevKwh || 0, nextKwh || 0);
+      merged.consumo_kwh = Number.isFinite(safeMax) ? safeMax : undefined;
+    }
+    map.set(key, merged);
+  }
+
+  const updated = Array.from(map.values());
+  const tmp = outFile + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(updated, null, 2), 'utf8');
+  fs.renameSync(tmp, outFile);
+
+  return { ok: true, outFile, count: updated.length };
+}
+
+// Determina se un timestamp ISO cade in una specifica settimana/anno ISO
+function _isInISOWeek(ts, week, year) {
+  if (!ts) return false;
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  return getISOWeek(d) === Number(week) && getISOWeekYear(d) === Number(year);
+}
+
+// Costruisce { "w_y": [rows] } a partire dai programs correnti
+function groupProgramsByWeek(programs) {
+  const buckets = new Map();
+  for (const p of programs) {
+    const anchor = p.startTime || p.endTime;
+    if (!anchor) continue;
+    const d = new Date(anchor);
+    if (Number.isNaN(d.getTime())) continue;
+    const w = getISOWeek(d);
+    const y = getISOWeekYear(d);
+    const key = `${w}_${y}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p);
+  }
+  return buckets;
+}
+
+// --- Debounce/Throttle per rigenerazione settimanale ---
+const regenTimers = new Map(); // key = `${week}_${year}` -> timeoutId
+
+function scheduleWeeklyRegen(week, year, delayMs = 5000) {
+  const key = `${Number(week)}_${Number(year)}`;
+  if (regenTimers.has(key)) {
+    // già in coda, non rigenero di nuovo
+    return;
+  }
+  const t = setTimeout(async () => {
+    regenTimers.delete(key);
+    try {
+      await generaSettimanaProtek(Number(week), Number(year));
+      console.log(`[PROTEK][realtime] Rigenerata settimana ${week}/${year}`);
+    } catch (e) {
+      console.warn(`[PROTEK][realtime] Rigenera ${week}/${year} fallita:`, e?.message || String(e));
+    }
+  }, delayMs);
+  regenTimers.set(key, t);
+}
+
+
+// Watcher CSV → aggiorna in tempo reale i file settimanali
+function startProtekRealtimeUpdater() {
+  try {
+    const { monitorPath, settimanaJsonPath } = readProtekSettings();
+    if (!monitorPath || !fs.existsSync(monitorPath)) {
+      console.warn('[PROTEK RT] monitorPath non impostato o non esistente: realtime disabilitato.');
+      return;
+    }
+    const baseOut = (
+      settimanaJsonPath &&
+      fs.existsSync(settimanaJsonPath) &&
+      fs.statSync(settimanaJsonPath).isDirectory()
+    ) ? settimanaJsonPath : (settimanaJsonPath ? path.dirname(settimanaJsonPath) : path.join(__dirname, 'data'));
+
+    let debounceTimer = null;
+    const triggerUpdate = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        try {
+          const programs = buildProgramsFromCsv(monitorPath);
+          const groups = groupProgramsByWeek(programs);
+          for (const [k, rows] of groups) {
+            const [wStr, yStr] = k.split('_');
+            const w = Number(wStr), y = Number(yStr);
+            const r = upsertSettimanaProtek(w, y, rows, baseOut);
+console.log(`[PROTEK RT] Upsert settimana ${w}/${y}: ${rows.length} righe (-> ${r.outFile})`);
+
+// accoda una rigenerazione non immediata (5s debounce)
+scheduleWeeklyRegen(w, y, 5000);
+
+          }
+        } catch (e) {
+          console.warn('[PROTEK RT] errore aggiornando settimane:', e?.message || String(e));
+        }
+      }, 1200);
+    };
+
+    // Primo giro all'avvio
+    triggerUpdate();
+
+    const watchFiles = [
+      'JOBS.csv','JOB_ORDERS.csv','PART_PROGRAMS.csv','PART_SUB_PROGRAMS.csv',
+      'PART_PROGRAM_WORKINGS.csv','PART_PROGRAM_WORKING_LINES.csv',
+      'NESTINGS_ORDERS.csv','NESTING_OCCURENCES.csv','LIFECYCLE.csv',
+      'USERS.csv','WORK_CONFIGURATIONS.csv','CUSTOMERS.csv','ALARMS.csv'
+    ];
+
+    try {
+      const watcher = fs.watch(monitorPath, { persistent: true }, (event, filename) => {
+        if (!filename) return;
+        const fn = filename.toString();
+        if (watchFiles.some(w => w.toLowerCase() === fn.toLowerCase())) {
+          triggerUpdate();
+        }
+      });
+      watcher.on('error', (e) => console.warn('[PROTEK RT] watcher error:', e?.message || String(e)));
+      console.log('[PROTEK RT] Watcher attivo su:', monitorPath);
+    } catch (e) {
+      console.warn('[PROTEK RT] fs.watch non disponibile, attivo polling 3s:', e?.message || String(e));
+      let lastStamp = 0;
+      setInterval(() => {
+        try {
+          const stamp = fs.readdirSync(monitorPath)
+            .filter(fn => watchFiles.includes(fn))
+            .map(fn => fs.statSync(path.join(monitorPath, fn)).mtimeMs || 0)
+            .reduce((a,b) => Math.max(a,b), 0);
+          if (stamp > lastStamp) { lastStamp = stamp; triggerUpdate(); }
+        } catch {}
+      }, 3000);
+    }
+  } catch (e) {
+    console.warn('[PROTEK RT] init error:', e?.message || String(e));
+  }
+}
+// [GIALLA - riga successiva] ---------------------------------------------------
+
+
 
 app.get('/api/protek/programs', (req, res) => {
   const { monitorPath } = readProtekSettings();
@@ -3112,7 +3304,7 @@ function getISOWeekYear(date) {
   return d.getUTCFullYear();
 }
 
-function generaSettimanaProtek(week, year) {
+async function generaSettimanaProtek(week, year) {
   const { monitorPath, settimanaJsonPath } = readProtekSettings();
   if (!monitorPath || !fs.existsSync(monitorPath)) {
     throw new Error('monitorPath Protek non impostato o non esistente.');
@@ -3129,9 +3321,9 @@ function generaSettimanaProtek(week, year) {
     return getISOWeek(t) === Number(week) && getISOWeekYear(t) === Number(year);
   };
 
-  const rows = programs.filter(p => inWeek(p.startTime || p.endTime));
+  let rows = programs.filter(p => inWeek(p.startTime || p.endTime));
 
-  // base di salvataggio: se è una directory uso quella; altrimenti la dirname
+  // base out
   let base;
   try {
     if (fs.existsSync(settimanaJsonPath) && fs.statSync(settimanaJsonPath).isDirectory()) {
@@ -3143,11 +3335,51 @@ function generaSettimanaProtek(week, year) {
     base = path.dirname(settimanaJsonPath);
   }
   if (!fs.existsSync(base)) fs.mkdirSync(base, { recursive: true });
-
   const outFile = path.join(base, `Protek_${week}_${year}.json`);
-  fs.writeFileSync(outFile, JSON.stringify(rows, null, 2), 'utf8');
 
-  console.log(`[PROTEK] Settimana ${week}/${year}: salvato ${rows.length} righe in`, outFile);
+  // leggo eventuale file esistente per preservare i kWh
+  let existing = [];
+  if (fs.existsSync(outFile)) {
+    try {
+      const raw = fs.readFileSync(outFile, 'utf8');
+      existing = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(existing)) existing = [];
+    } catch { existing = []; }
+  }
+  const existingByKey = new Map(existing.map(r => [_keyOfProgramRow(r), r]));
+
+  // preparo payload per calcolo kWh dal backend Protek (Flask 5052)
+  const jobs = rows.map(r => ({
+    id: _keyOfProgramRow(r),
+    startTime: r.startTime || null,
+    endTime: r.endTime || null
+  }));
+
+  let byId = {};
+  try {
+    const resp = await axios.post('http://192.168.1.250:5052/api/energy/rangebulk', { jobs }, { timeout: 8000 });
+    byId = (resp?.data?.data?.byId) || {};
+  } catch (e) {
+    console.warn('[PROTEK] rangebulk fallita:', e?.message || String(e));
+    // se fallisce, proseguo senza kWh (ma preservo quelli esistenti)
+  }
+
+  // arricchisco righe con consumo_kwh = max(esistente, calcolato)
+  rows = rows.map(r => {
+    const key = _keyOfProgramRow(r);
+    const prev = existingByKey.get(key);
+    const prevK = Number.isFinite(+prev?.consumo_kwh) ? +prev.consumo_kwh : 0;
+    const calcK = Number.isFinite(+byId?.[key]?.kwh) ? +byId[key].kwh : 0;
+    const finalK = Math.max(prevK, calcK);
+    return finalK > 0 ? { ...r, consumo_kwh: Number(finalK.toFixed(6)) } : { ...r };
+  });
+
+  // scrittura atomica
+  const tmp = outFile + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(rows, null, 2), 'utf8');
+  fs.renameSync(tmp, outFile);
+
+  console.log(`[PROTEK] Settimana ${week}/${year}: salvate ${rows.length} righe (kWh arricchiti) in`, outFile);
   return { outFile, count: rows.length };
 }
 
@@ -3299,3 +3531,5 @@ server.listen(3001, '0.0.0.0', () => {
   console.log('🚀 Server in ascolto su http://192.168.1.250:3001');
 });
 startMultiPrinterScheduler();    
+
+startProtekRealtimeUpdater(); // 🆕 avvio aggiornamento/settimane in tempo reale

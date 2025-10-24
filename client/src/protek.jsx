@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import NewSlideProtek from "./NewSlideProtek";
 
+/* ----------------- stile bottoni scorciatoie ----------------- */
 const PROTEK_BTN_STYLE = {
   padding: "10px 20px",
   background: "#1A202C",
@@ -16,16 +17,20 @@ const PROTEK_BTN_HOVER = {
   transform: "scale(1.05)",
   boxShadow: "0 6px 8px rgba(0,0,0,.4)",
 };
-const PROTEK_CONSUMI_URL = "http://192.168.1.250:3000/";
+
+/* ----------------- scorciatoie esterne ----------------- */
+const PROTEK_CONSUMI_URL =
+  (import.meta?.env?.VITE_CONSUMI_URL?.replace(/\/+$/, "")) ||
+  `${location.protocol}//${location.hostname}:3002`;
 const PROTEK_STORICO_FALLBACK = "http://192.168.1.41/wsmeasure/big?language=it";
 const PROTEK_STORICO_CONFIRM =
   "Vuoi accedere alla finestra Storico? pin 99999 puk 00000 9999 00000";
 
-// Agent esterno Protek (override via env se serve)
-
- const PROTEK_AGENT_BASE = `${location.origin}/api/protek/instant`;
-
-
+/* ----------------- Agent Protek (backend energia) ----------------- */
+const PROTEK_BASE =
+  (import.meta?.env?.VITE_PROTEK_AGENT &&
+    import.meta.env.VITE_PROTEK_AGENT.replace(/\/+$/, "")) ||
+  "http://192.168.1.250:5052/api";
 
 /* ----------------- fetch robusto ----------------- */
 async function safeFetchJson(input, init) {
@@ -93,6 +98,11 @@ function getISOWeekYear(date = new Date()) {
   return d.getUTCFullYear();
 }
 
+// Restituisce il filename del weekly per la settimana/anno selezionati
+const getFilenameForWeek = (w = selectedWeek, y = selectedYear) =>
+  weeksList.find((x) => x.week === w && x.year === y)?.filename || null;
+
+
 /* ----------------- confronto "smart" delle righe ----------------- */
 function areRowsEqual(a = [], b = []) {
   if (a === b) return true;
@@ -126,6 +136,9 @@ function areRowsEqual(a = [], b = []) {
   return true;
 }
 
+/* ================================================================
+   COMPONENTE
+================================================================ */
 export default function ProtekPage({ onBack, server }) {
   const API_BASE = (
     server || import.meta?.env?.VITE_API_BASE || "http://192.168.1.250:3001"
@@ -153,6 +166,11 @@ export default function ProtekPage({ onBack, server }) {
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
   const [userTouchedWeek, setUserTouchedWeek] = useState(false);
+
+  // helper per ottenere il filename della settimana selezionata
+  const getFilenameForWeek = (w = selectedWeek, y = selectedYear) =>
+    weeksList.find((x) => x.week === w && x.year === y)?.filename || null;
+
 
   // === Potenza istantanea dall’agent ===
   const [instantKw, setInstantKw] = useState(null);       // smussato (EMA)
@@ -190,7 +208,7 @@ export default function ProtekPage({ onBack, server }) {
           p.readyDate
         ) || null,
       numWorkings: p.numWorkings ?? p.workings ?? 0,
-      consumo_kwh: p.consumo_kwh,
+      consumo_kwh: p.consumo_kwh, // può esserci già dal server manager
       operators: p.operators,
       machines: p.machines,
       ordersCount: p.ordersCount,
@@ -236,6 +254,60 @@ export default function ProtekPage({ onBack, server }) {
     }
   };
 
+  /* ----------------- Calcolo kWh da agent Protek ----------------- */
+  const calcEnergyForRows = async (rowsToCalc) => {
+    // prepara jobs {id, startTime, endTime}
+    const jobs = rowsToCalc
+      .filter((r) => r.startTime) // serve almeno start
+      .map((r) => ({
+        id: String(r.id ?? ""),
+        startTime: r.startTime,
+        endTime: r.endTime || null, // se mancante → finestra mobile fino ad adesso
+      }));
+
+    if (jobs.length === 0) return rowsToCalc;
+
+    // batch in chunk per evitare request troppo grandi
+    const chunkSize = 150;
+    const chunks = [];
+    for (let i = 0; i < jobs.length; i += chunkSize) {
+      chunks.push(jobs.slice(i, i + chunkSize));
+    }
+
+    const byId = {};
+    for (const ch of chunks) {
+      try {
+        const r = await safeFetchJson(`${PROTEK_BASE}/energy/rangebulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobs: ch }),
+        });
+        if (r.ok && r.data && r.data.data && r.data.data.byId) {
+          Object.assign(byId, r.data.data.byId);
+        }
+      } catch (e) {
+        console.warn("calcEnergyForRows chunk error:", e);
+      }
+    }
+
+    // unisci ai rows
+    const merged = rowsToCalc.map((r) => {
+      const id = String(r.id ?? "");
+      const it = byId[id];
+      if (!it || typeof it.kwh !== "number") return r;
+
+      // Se job è ancora aperto (endTime mancante), mostro "~kWh"
+      const kwh = Number(it.kwh);
+      const open = !r.endTime;
+      return {
+        ...r,
+        consumo_kwh: open ? `~${kwh.toFixed(3)}` : Number(kwh.toFixed(6)),
+      };
+    });
+
+    return merged;
+  };
+
   /* ----------------- dati per settimana ----------------- */
   const fetchWeeklyData = async (
     week = selectedWeek,
@@ -255,28 +327,63 @@ export default function ProtekPage({ onBack, server }) {
         api(`/api/protek/storico-settimana?week=${week}&year=${year}`)
       );
 
-      let newRows = [];
+      let baseRows = [];
       let newMeta = null;
 
       if (r.ok && Array.isArray(r.data) && r.data.length > 0) {
-        newRows = normalizeFromPrograms(r.data);
+        baseRows = normalizeFromPrograms(r.data);
         newMeta = { week, year, source: "weekly" };
       } else {
+        // fallback all'elenco "programs" live
         const r2 = await safeFetchJson(api("/api/protek/programs"));
         if (r2.ok && Array.isArray(r2.data?.programs)) {
-          newRows = normalizeFromPrograms(r2.data.programs);
+          baseRows = normalizeFromPrograms(r2.data.programs);
           newMeta = r2.data.meta || r2.data.__meta || { source: "programs" };
         } else {
-          newRows = [];
+          baseRows = [];
           newMeta = null;
         }
       }
 
-      setRefreshedAt(new Date().toISOString());
-      if (!areRowsEqual(rows, newRows)) {
-        setRows(newRows);
+      // --> calcola i kWh dal device (file data_protek.json) tramite agent
+const enriched = await calcEnergyForRows(baseRows);
+
+setRefreshedAt(new Date().toISOString());
+
+// Salva meta con filename, se disponibile
+const filename = getFilenameForWeek(week, year);
+newMeta = { ...(newMeta || {}), week, year, filename, source: (newMeta?.source || "weekly") };
+setMeta(newMeta);
+
+// Imposta le righe ora (usa l'array arricchito)
+if (!areRowsEqual(rows, enriched)) {
+  setRows(enriched);
+}
+
+// Se nel weekly mancano consumo_kwh -> chiedi al 5052 di annotare e poi ricarica
+const missingKwh = Array.isArray(enriched) && enriched.length > 0 &&
+  enriched.some(r => r.consumo_kwh == null);
+
+
+      if (missingKwh && filename) {
+        // CHIAMATA al 5052 per annotare i kWh in modo non-decrescente
+        await safeFetchJson(`${PROTEK_BASE}/protek/annotate-file`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file: filename }),
+        });
+
+        // RICARICO il weekly per mostrare i valori aggiornati
+        const r3 = await safeFetchJson(
+          api(`/api/protek/storico-settimana?week=${week}&year=${year}`)
+        );
+        if (r3.ok && Array.isArray(r3.data)) {
+          const rowsAfter = normalizeFromPrograms(r3.data);
+          if (!areRowsEqual(rows, rowsAfter)) {
+            setRows(rowsAfter);
+          }
+        }
       }
-      setMeta(newMeta);
     } catch (e) {
       if (!silent) {
         setRows([]);
@@ -323,24 +430,37 @@ export default function ProtekPage({ onBack, server }) {
   // Polling potenza istantanea (1 Hz) con smoothing EMA
   useEffect(() => {
     let mounted = true;
+
     const fetchInstant = async () => {
       try {
-        const r = await safeFetchJson(`${PROTEK_AGENT_BASE}/instant`);
-        if (r.ok && r.data && mounted) {
-          const raw = Number(r.data.instant_kw);
-          if (Number.isFinite(raw)) {
-            setInstantKwRaw(raw);
+        const r = await safeFetchJson(`${PROTEK_BASE}/instant`);
+        if (!mounted) return;
+
+        if (r.ok && r.data) {
+          let val = null;
+          if (typeof r.data.instant_kw === "number") {
+            val = r.data.instant_kw;
+          } else {
+            const k1 = Number(r.data.instant_kw_1 ?? 0);
+            const k2 = Number(r.data.instant_kw_2 ?? 0);
+            if (Number.isFinite(k1) || Number.isFinite(k2)) {
+              val =
+                (Number.isFinite(k1) ? k1 : 0) +
+                (Number.isFinite(k2) ? k2 : 0);
+            }
+          }
+          if (val != null && Number.isFinite(val)) {
+            setInstantKwRaw(val);
             setInstantKw((prev) =>
-              prev == null ? raw : prev + EMA_ALPHA * (raw - prev)
+              prev == null ? val : prev + EMA_ALPHA * (val - prev)
             );
           }
           setInstantStale(Boolean(r.data.stale));
-          setInstantTs(String(r.data.ts || ""));
+          setInstantTs(String(r.data.ts || new Date().toISOString()));
         }
-      } catch {
-        // silenzio: mantieni ultimo valore
-      }
+      } catch {}
     };
+
     fetchInstant();
     const id = setInterval(fetchInstant, 1000);
     return () => {
@@ -389,6 +509,18 @@ export default function ProtekPage({ onBack, server }) {
       return passesSearch && passesState;
     });
   }, [rows, search, stateFilter]);
+
+// === Ordina i risultati: più recenti in alto (usa endTime, altrimenti startTime)
+const filteredSorted = useMemo(() => {
+  const toTs = (row) => {
+    const t = row.endTime || row.startTime || null;
+    const ts = t ? new Date(t).getTime() : 0;
+    return Number.isFinite(ts) ? ts : 0;
+  };
+  // copia + sort DESC
+  return [...filtered].sort((a, b) => toTs(b) - toTs(a));
+}, [filtered]);
+
 
   const storicoUrlClean = useMemo(
     () => (storicoConsumiUrl || "").replace(/"/g, "").trim(),
@@ -664,7 +796,8 @@ export default function ProtekPage({ onBack, server }) {
                 </td>
               </tr>
             ) : (
-              filtered.map((r) => (
+              filteredSorted.map((r) => (
+
                 <tr key={r.id} className="border-t hover:bg-gray-50">
                   <td className="p-2">{r.description || "—"}</td>
                   <td className="p-2">{r.customer || "—"}</td>
@@ -673,9 +806,12 @@ export default function ProtekPage({ onBack, server }) {
                   <td className="p-2">{fmtDate(r.endTime)}</td>
                   <td className="p-2">{fmtDuration(r.startTime, r.endTime)}</td>
                   <td className="p-2">
-                    {r.consumo_kwh !== undefined && !isNaN(r.consumo_kwh)
-                      ? Number(r.consumo_kwh).toFixed(3)
-                      : "—"}
+                    {r.consumo_kwh === undefined || r.consumo_kwh === null
+                      ? "—"
+                      : typeof r.consumo_kwh === "string" &&
+                        r.consumo_kwh.startsWith("~")
+                      ? r.consumo_kwh // job in corso → "~x.xxx"
+                      : Number(r.consumo_kwh).toFixed(3)}
                   </td>
                 </tr>
               ))
