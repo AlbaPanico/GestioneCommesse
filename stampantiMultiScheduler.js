@@ -462,14 +462,14 @@ async function cicloStampanti() {
     await processPrinter(printer, monitorJsonPath);
   }
 
-  // 2) Subito dopo, aggiorna i JSON per-stampante con:
-  //    - Costo Inchiostro (sempre)
-  //    - consumo_kwh per copia se mancante (per coerenza)
-  try {
-    await generaReportGenerali();
-  } catch (e) {
-    console.warn('[cicloStampanti] Warning in generaReportGenerali:', e?.message || String(e));
-  }
+    // 2) ⚠️ HOTFIX: evito di toccare settimane passate.
+  // Il vecchio generaReportGenerali ricostruisce anche i settimanali storici,
+  // per questo lo disattivo qui. La settimana CORRENTE viene già aggiornata
+  // da generaReportDaAclFile() (append-only sul file "Reportgenerali_Arizona_<week>_<year>.json")
+  // e i costi inchiostro li calcoliamo lì.
+  // TODO (Passo 2): riscrivere generaReportGenerali per limitarlo alla sola settimana corrente
+  // e poi riattivarlo con un flag/parametro.
+
 }
 
 // Funzione esportata per avvio da server.js

@@ -97,11 +97,10 @@ function getISOWeekYear(date = new Date()) {
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
   return d.getUTCFullYear();
 }
-
-// Restituisce il filename del weekly per la settimana/anno selezionati
-const getFilenameForWeek = (w = selectedWeek, y = selectedYear) =>
-  weeksList.find((x) => x.week === w && x.year === y)?.filename || null;
-
+function isCurrentWeekYear(week, year) {
+  const now = new Date();
+  return week === getISOWeek(now) && year === getISOWeekYear(now);
+}
 
 /* ----------------- confronto "smart" delle righe ----------------- */
 function areRowsEqual(a = [], b = []) {
@@ -120,6 +119,7 @@ function areRowsEqual(a = [], b = []) {
       "startTime",
       "endTime",
       "consumo_kwh",
+      "commessa",
     ];
     for (const k of keys) {
       const va = ra[k];
@@ -167,19 +167,44 @@ export default function ProtekPage({ onBack, server }) {
   const [selectedYear, setSelectedYear] = useState(null);
   const [userTouchedWeek, setUserTouchedWeek] = useState(false);
 
+  // gruppi espansi (per chiave "descrizione")
+  const [openGroups, setOpenGroups] = useState(() => new Set());
+  const toggleGroup = (key) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   // helper per ottenere il filename della settimana selezionata
   const getFilenameForWeek = (w = selectedWeek, y = selectedYear) =>
     weeksList.find((x) => x.week === w && x.year === y)?.filename || null;
 
-
   // === Potenza istantanea dall’agent ===
-  const [instantKw, setInstantKw] = useState(null);       // smussato (EMA)
+  const [instantKw, setInstantKw] = useState(null); // smussato (EMA)
   const [instantKwRaw, setInstantKwRaw] = useState(null); // lettura grezza
   const [instantStale, setInstantStale] = useState(false);
   const [instantTs, setInstantTs] = useState("");
   const EMA_ALPHA = 0.4; // smoothing
 
   /* -------- Normalizzatori -------- */
+  // parse "kWh" da stringhe con "~" e/o virgola decimale, ma
+  // mantieni il valore "raw" per non perdere il "~" in tabella
+  const pickKwhRaw = (p) =>
+    first(
+      p.consumo_kwh,
+      p.kwh,
+      p.consumoKwh,
+      p.energy_kwh,
+      p.energyKwh,
+      p.energia_kwh,
+      p.energiaKwh,
+      p.kwh_computed,
+      p.kwhComputed
+    );
+
   const normalizeFromPrograms = (list = []) =>
     list.map((p, i) => ({
       id: p.id ?? `${p.code || "row"}-${i}`,
@@ -190,6 +215,15 @@ export default function ProtekPage({ onBack, server }) {
         p.programDescription,
         p.note,
         p.title
+      ),
+      // 🔹 COMMESSA
+      commessa: first(
+        p.commessa,
+        p.orderCode,
+        p.order,
+        p.jobOrder,
+        p.commissione,
+        p.commission
       ),
       customer: first(p.customer, p.customerName, p.client, p.cliente),
       latestState: first(p.latestState, p.state, p.status, p.Stato, p.Status),
@@ -208,12 +242,15 @@ export default function ProtekPage({ onBack, server }) {
           p.readyDate
         ) || null,
       numWorkings: p.numWorkings ?? p.workings ?? 0,
-      consumo_kwh: p.consumo_kwh, // può esserci già dal server manager
+      // 👇 ora supportiamo tutti i nomi possibili presenti nei .json storici
+      consumo_kwh: pickKwhRaw(p),
       operators: p.operators,
       machines: p.machines,
       ordersCount: p.ordersCount,
       qtyOrdered: p.qtyOrdered,
       piecesFromNestings: p.piecesFromNestings,
+      totalCycles: p.totalCycles,
+      currentCycle: p.currentCycle,
     }));
 
   /* ----------------- settings ----------------- */
@@ -256,18 +293,16 @@ export default function ProtekPage({ onBack, server }) {
 
   /* ----------------- Calcolo kWh da agent Protek ----------------- */
   const calcEnergyForRows = async (rowsToCalc) => {
-    // prepara jobs {id, startTime, endTime}
     const jobs = rowsToCalc
-      .filter((r) => r.startTime) // serve almeno start
+      .filter((r) => r.startTime)
       .map((r) => ({
         id: String(r.id ?? ""),
         startTime: r.startTime,
-        endTime: r.endTime || null, // se mancante → finestra mobile fino ad adesso
+        endTime: r.endTime || null,
       }));
 
     if (jobs.length === 0) return rowsToCalc;
 
-    // batch in chunk per evitare request troppo grandi
     const chunkSize = 150;
     const chunks = [];
     for (let i = 0; i < jobs.length; i += chunkSize) {
@@ -290,18 +325,41 @@ export default function ProtekPage({ onBack, server }) {
       }
     }
 
-    // unisci ai rows
+    // unisci ai rows (NON sovrascrivere valori già presenti validi)
     const merged = rowsToCalc.map((r) => {
       const id = String(r.id ?? "");
       const it = byId[id];
+
       if (!it || typeof it.kwh !== "number") return r;
 
-      // Se job è ancora aperto (endTime mancante), mostro "~kWh"
-      const kwh = Number(it.kwh);
-      const open = !r.endTime;
+      const prev = r.consumo_kwh;
+      const computed = Number(it.kwh);
+      const isOpen = !r.endTime;
+
+      const parseNum = (v) => {
+        if (v == null) return null;
+        if (typeof v === "string") {
+          const s = v.trim().replace(/^~/, "");
+          const n = parseFloat(s.replace(",", "."));
+          return Number.isFinite(n) ? n : null;
+        }
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const prevNum = parseNum(prev);
+
+      // Scrivi solo se manca, è "~" (job aperto) o il nuovo è maggiore
+      const shouldOverwrite =
+        prevNum == null ||
+        (typeof prev === "string" && prev.startsWith("~")) ||
+        (prevNum != null && computed > prevNum + 1e-9);
+
+      if (!shouldOverwrite) return r;
+
       return {
         ...r,
-        consumo_kwh: open ? `~${kwh.toFixed(3)}` : Number(kwh.toFixed(6)),
+        consumo_kwh: isOpen ? `~${computed.toFixed(3)}` : Number(computed.toFixed(6)),
       };
     });
 
@@ -309,91 +367,122 @@ export default function ProtekPage({ onBack, server }) {
   };
 
   /* ----------------- dati per settimana ----------------- */
-  const fetchWeeklyData = async (
-    week = selectedWeek,
-    year = selectedYear,
-    opts = { silent: false }
-  ) => {
-    if (!week || !year) return;
-    const { silent = false } = opts;
+const fetchWeeklyData = async (
+  week = selectedWeek,
+  year = selectedYear,
+  opts = { silent: false }
+) => {
+  if (!week || !year) return;
+  const { silent = false } = opts;
+  const isCurrent = isCurrentWeekYear(week, year);
 
-    try {
-      if (!silent) {
-        setLoading(true);
-        setError("");
-      }
+  try {
+    if (!silent) {
+      setLoading(true);
+      setError("");
+    }
 
-      const r = await safeFetchJson(
-        api(`/api/protek/storico-settimana?week=${week}&year=${year}`)
-      );
+    // 1) Prova SEMPRE a leggere il file settimanale
+    const r = await safeFetchJson(
+      api(`/api/protek/storico-settimana?week=${week}&year=${year}`)
+    );
 
-      let baseRows = [];
-      let newMeta = null;
+    let baseRows = [];
+    let newMeta = null;
 
-      if (r.ok && Array.isArray(r.data) && r.data.length > 0) {
-        baseRows = normalizeFromPrograms(r.data);
-        newMeta = { week, year, source: "weekly" };
-      } else {
-        // fallback all'elenco "programs" live
-        const r2 = await safeFetchJson(api("/api/protek/programs"));
+    if (r.ok && Array.isArray(r.data) && r.data.length > 0) {
+      // ✅ Settimana da FILE .json (sorgente canonica)
+      baseRows = normalizeFromPrograms(r.data);
+      newMeta = { week, year, source: "weekly-file" };
+    } else {
+      if (isCurrent) {
+        // 2) Solo per la settimana corrente: fallback ai programmi live (senza bloccare)
+        const r2 = await safeFetchJson(
+          api(`/api/protek/programs?week=${week}&year=${year}`)
+        );
         if (r2.ok && Array.isArray(r2.data?.programs)) {
           baseRows = normalizeFromPrograms(r2.data.programs);
           newMeta = r2.data.meta || r2.data.__meta || { source: "programs" };
         } else {
           baseRows = [];
-          newMeta = null;
+          newMeta = { week, year, source: "none" };
         }
+      } else {
+        // ❌ Settimane passate/future: niente fallback -> niente calcoli, niente overlay
+        baseRows = [];
+        newMeta = { week, year, source: "weekly-file-missing" };
       }
+    }
 
-      // --> calcola i kWh dal device (file data_protek.json) tramite agent
-const enriched = await calcEnergyForRows(baseRows);
+    // 3) Ricalcolo energia SOLO se settimana corrente
+    let enriched = baseRows;
+    if (isCurrent && baseRows.length > 0) {
+      enriched = await calcEnergyForRows(baseRows);
+    }
 
-setRefreshedAt(new Date().toISOString());
+    setRefreshedAt(new Date().toISOString());
 
-// Salva meta con filename, se disponibile
-const filename = getFilenameForWeek(week, year);
-newMeta = { ...(newMeta || {}), week, year, filename, source: (newMeta?.source || "weekly") };
-setMeta(newMeta);
+    const filename = getFilenameForWeek(week, year);
+    newMeta = {
+      ...(newMeta || {}),
+      week,
+      year,
+      filename,
+      // Etichetta chiara della policy applicata
+      policy: isCurrent ? "live+recalc" : "historical-file-only"
+    };
+    setMeta(newMeta);
 
-// Imposta le righe ora (usa l'array arricchito)
-if (!areRowsEqual(rows, enriched)) {
-  setRows(enriched);
-}
+    if (!areRowsEqual(rows, enriched)) {
+      setRows(enriched);
+    }
 
-// Se nel weekly mancano consumo_kwh -> chiedi al 5052 di annotare e poi ricarica
-const missingKwh = Array.isArray(enriched) && enriched.length > 0 &&
-  enriched.some(r => r.consumo_kwh == null);
+    // 4) Annotazione automatica SOLO sulla settimana corrente
+    if (isCurrent) {
+      const missingKwh =
+        Array.isArray(enriched) &&
+        enriched.length > 0 &&
+        enriched.some((r) => r.consumo_kwh == null);
 
+      if (filename && missingKwh) {
+        const now = Date.now();
+        const COOLDOWN_MS = 15 * 60 * 1000;
+        if (!window.__protekAnnotateCooldown) window.__protekAnnotateCooldown = {};
+        const last = window.__protekAnnotateCooldown[filename] || 0;
 
-      if (missingKwh && filename) {
-        // CHIAMATA al 5052 per annotare i kWh in modo non-decrescente
-        await safeFetchJson(`${PROTEK_BASE}/protek/annotate-file`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ file: filename }),
-        });
+        if (now - last > COOLDOWN_MS) {
+          window.__protekAnnotateCooldown[filename] = now;
 
-        // RICARICO il weekly per mostrare i valori aggiornati
-        const r3 = await safeFetchJson(
-          api(`/api/protek/storico-settimana?week=${week}&year=${year}`)
-        );
-        if (r3.ok && Array.isArray(r3.data)) {
-          const rowsAfter = normalizeFromPrograms(r3.data);
-          if (!areRowsEqual(rows, rowsAfter)) {
-            setRows(rowsAfter);
+          await safeFetchJson(`${PROTEK_BASE}/protek/annotate-file`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ file: filename }),
+          });
+
+          // Rileggi il FILE (non i programmi) per aggiornare i valori scritti
+          const r3 = await safeFetchJson(
+            api(`/api/protek/storico-settimana?week=${week}&year=${year}`)
+          );
+          if (r3.ok && Array.isArray(r3.data)) {
+            const rowsAfter = normalizeFromPrograms(r3.data);
+            if (!areRowsEqual(rows, rowsAfter)) {
+              setRows(rowsAfter);
+            }
           }
         }
       }
-    } catch (e) {
-      if (!silent) {
-        setRows([]);
-        setMeta(null);
-        setError(String(e?.message || e));
-      }
-    } finally {
-      if (!silent) setLoading(false);
     }
-  };
+  } catch (e) {
+    if (!silent) {
+      setRows([]);
+      setMeta(null);
+      setError(String(e?.message || e));
+    }
+  } finally {
+    if (!silent) setLoading(false);
+  }
+};
+
 
   /* ----------------- lifecycle ----------------- */
   const reloadAll = () => {
@@ -403,28 +492,23 @@ const missingKwh = Array.isArray(enriched) && enriched.length > 0 &&
 
   useEffect(() => {
     reloadAll();
-    // eslint-disable-next-line react-hooks-exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (selectedWeek && selectedYear) {
       fetchWeeklyData(selectedWeek, selectedYear, { silent: false });
     }
-    // eslint-disable-next-line react-hooks-exhaustive-deps
   }, [selectedWeek, selectedYear]);
 
-  // Auto-refresh dati tabella (solo settimana corrente) in SILENT
+  // Auto-refresh solo sulla settimana corrente (silent)
   useEffect(() => {
     if (!selectedWeek || !selectedYear) return;
-    const isCurrent =
-      selectedWeek === getISOWeek(new Date()) &&
-      selectedYear === getISOWeekYear(new Date());
+    const isCurrent = isCurrentWeekYear(selectedWeek, selectedYear);
     if (!isCurrent) return;
     const id = setInterval(() => {
       fetchWeeklyData(selectedWeek, selectedYear, { silent: true });
     }, 5000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks-exhaustive-deps
   }, [selectedWeek, selectedYear]);
 
   // Polling potenza istantanea (1 Hz) con smoothing EMA
@@ -484,6 +568,97 @@ const missingKwh = Array.isArray(enriched) && enriched.length > 0 &&
     setTimeout(reloadAll, 100);
   };
 
+  // Calcola kWh via Agent e SCRIVE nel file settimanale (senza sovrascrivere valori già presenti)
+  async function calcAndWriteWeek(week = selectedWeek, year = selectedYear) {
+    if (!week || !year) return;
+    const filename = getFilenameForWeek(week, year);
+    if (!filename) {
+      alert("File settimanale non trovato. Aggiorna la lista settimane e riprova.");
+      await fetchWeeksList();
+      return;
+    }
+    try {
+      setLoading(true);
+      // Chiedo all’agent di annotare il file: l’agent calcola i kWh per le righe mancanti e li scrive nel JSON
+      await safeFetchJson(`${PROTEK_BASE}/protek/annotate-file`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // NB: lato agent, 'annotate-file' deve essere idempotente e NON sovrascrivere kWh già presenti
+        body: JSON.stringify({ file: filename }),
+      });
+      // Ricarico i dati della settimana dal FILE
+      await fetchWeeklyData(week, year, { silent: false });
+      await fetchWeeksList();
+    } catch (e) {
+      console.warn("calcAndWriteWeek error:", e);
+      alert("Errore nel calcolo/scrittura kWh della settimana selezionata.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Calcola & scrive TUTTE LE SETTIMANE disponibili (una tantum)
+  async function calcAndWriteAllWeeks() {
+    if (!weeksList || weeksList.length === 0) {
+      alert("Nessuna settimana disponibile.");
+      return;
+    }
+    const go = confirm("Calcolo e SCRIVO i kWh su TUTTE le settimane elencate. Procedo?");
+    if (!go) return;
+    try {
+      setLoading(true);
+      // Eseguo in sequenza per non stressare l’agent/disk
+      for (const { week, year, filename } of weeksList) {
+        if (!filename) continue;
+        await safeFetchJson(`${PROTEK_BASE}/protek/annotate-file`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file: filename }),
+        });
+      }
+      // Ricarico la settimana attuale selezionata
+      if (selectedWeek && selectedYear) {
+        await fetchWeeklyData(selectedWeek, selectedYear, { silent: false });
+      }
+      await fetchWeeksList();
+      alert("Calcolo & scrittura kWh completati su tutte le settimane.");
+    } catch (e) {
+      console.warn("calcAndWriteAllWeeks error:", e);
+      alert("Errore nel calcolo/scrittura su alcune settimane. Vedi console.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
+  // somma consumo_kwh gestendo "~" e la VIRGOLA decimale ("1,234")
+  function numKwh(v) {
+    if (v == null) return 0;
+    if (typeof v === "string") {
+      const s = v.trim().replace(/^~/, "").replace(",", ".");
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // differenza minuti tra 2 ISO
+  function minsBetween(a, b) {
+    if (!a || !b) return 0;
+    const ta = new Date(a).getTime();
+    const tb = new Date(b).getTime();
+    if (!Number.isFinite(ta) || !Number.isFinite(tb) || tb < ta) return 0;
+    return Math.round((tb - ta) / 60000);
+  }
+
+  // format minuti totali -> "Xh Ym"
+  function fmtMins(total) {
+    const hh = Math.floor(total / 60);
+    const mm = total % 60;
+    return `${hh}h ${mm}m`;
+  }
+
   /* ----------------- filtri client ----------------- */
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -491,6 +666,7 @@ const missingKwh = Array.isArray(enriched) && enriched.length > 0 &&
       const hay = [
         r.code,
         r.description,
+        r.commessa,
         r.customer,
         r.operators,
         r.machines,
@@ -510,17 +686,77 @@ const missingKwh = Array.isArray(enriched) && enriched.length > 0 &&
     });
   }, [rows, search, stateFilter]);
 
-// === Ordina i risultati: più recenti in alto (usa endTime, altrimenti startTime)
-const filteredSorted = useMemo(() => {
-  const toTs = (row) => {
-    const t = row.endTime || row.startTime || null;
-    const ts = t ? new Date(t).getTime() : 0;
-    return Number.isFinite(ts) ? ts : 0;
-  };
-  // copia + sort DESC
-  return [...filtered].sort((a, b) => toTs(b) - toTs(a));
-}, [filtered]);
+  // Ordina per più recenti in alto
+  const filteredSorted = useMemo(() => {
+    const toTs = (row) => {
+      const t = row.endTime || row.startTime || null;
+      const ts = t ? new Date(t).getTime() : 0;
+      return Number.isFinite(ts) ? ts : 0;
+    };
+    return [...filtered].sort((a, b) => toTs(b) - toTs(a));
+  }, [filtered]);
 
+  // Raggruppa per Descrizione
+  const grouped = useMemo(() => {
+    const byKey = new Map();
+
+    for (const r of filteredSorted) {
+      const desc = (r.description || "—").trim();
+      const key = desc.toLowerCase();
+
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          key,
+          description: desc,
+          rows: [],
+          agg: {
+            customer: "—",
+            latestState: "—",
+            startTime: null,
+            endTime: null,
+            totalMins: 0,
+            consumo_kwh: 0,
+            totalCycles: 0,
+            commesse: new Set(),
+            commessa: "—",
+          },
+        });
+      }
+
+      const g = byKey.get(key);
+      g.rows.push(r);
+
+      const s = r.startTime || null;
+      const e = r.endTime || null;
+
+      if (s && (!g.agg.startTime || new Date(s) < new Date(g.agg.startTime))) {
+        g.agg.startTime = s;
+      }
+      if (e && (!g.agg.endTime || new Date(e) > new Date(g.agg.endTime))) {
+        g.agg.endTime = e;
+      }
+
+      g.agg.totalMins += minsBetween(r.startTime, r.endTime);
+      g.agg.consumo_kwh += numKwh(r.consumo_kwh);
+      g.agg.totalCycles =
+        (g.agg.totalCycles || 0) + (r.totalCycles || r.numWorkings || 0);
+
+      if (r.commessa) g.agg.commesse.add(String(r.commessa));
+    }
+
+    const list = Array.from(byKey.values()).map((g) => {
+      g.agg.commessa = g.agg.commesse.size === 1 ? [...g.agg.commesse][0] : "—";
+      return g;
+    });
+
+    const tsOf = (g) => {
+      const t = g.agg.endTime || g.agg.startTime;
+      const n = t ? new Date(t).getTime() : 0;
+      return Number.isFinite(n) ? n : 0;
+    };
+    list.sort((a, b) => tsOf(b) - tsOf(a));
+    return list;
+  }, [filteredSorted]);
 
   const storicoUrlClean = useMemo(
     () => (storicoConsumiUrl || "").replace(/"/g, "").trim(),
@@ -541,7 +777,7 @@ const filteredSorted = useMemo(() => {
   const InstantBadge = () => {
     const valTxt =
       instantKw == null ? "—" : Number(instantKw).toFixed(2) + " kW";
-    const dotColor = instantStale ? "#F59E0B" : "#10B981"; // giallo se stale, verde se ok
+    const dotColor = instantStale ? "#F59E0B" : "#10B981";
     const title =
       instantTs && instantKwRaw != null
         ? `Ultimo: ${Number(instantKwRaw).toFixed(3)} kW @ ${fmtDate(instantTs)}`
@@ -567,6 +803,9 @@ const filteredSorted = useMemo(() => {
     );
   };
 
+  const isSelectedCurrent =
+    selectedWeek && selectedYear && isCurrentWeekYear(selectedWeek, selectedYear);
+
   return (
     <div className="w-full h-full flex flex-col gap-3 p-4">
       {/* HEADER */}
@@ -575,6 +814,17 @@ const filteredSorted = useMemo(() => {
         <div className="flex items-center gap-2">
           {/* Badge potenza istantanea */}
           <InstantBadge />
+
+          {/* Badge storico bloccato */}
+          {selectedWeek && selectedYear && !isSelectedCurrent && (
+            <div
+              className="px-3 py-1 rounded-xl shadow text-sm"
+              style={{ background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412" }}
+              title="Settimana storica: i dati sono solo in lettura"
+            >
+              Storico (bloccato)
+            </div>
+          )}
 
           {/* HOME */}
           <button
@@ -634,27 +884,26 @@ const filteredSorted = useMemo(() => {
             Aggiorna
           </button>
 
+                   {/* Calcolo & scrittura kWh anche per settimane storiche (una tantum) */}
           <button
             className="px-3 py-1 rounded-xl shadow text-sm hover:shadow-md"
-            onClick={async () => {
-              try {
-                const body =
-                  selectedWeek && selectedYear
-                    ? { week: selectedWeek, year: selectedYear }
-                    : {};
-                await safeFetchJson(api("/api/protek/rigenera-settimana"), {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(body),
-                });
-                await fetchWeeklyData(selectedWeek, selectedYear, { silent: false });
-                await fetchWeeksList();
-              } catch {}
-            }}
-            title="Rigenera subito il file settimanale dal server"
+            disabled={!selectedWeek || !selectedYear}
+            onClick={() => calcAndWriteWeek(selectedWeek, selectedYear)}
+            title="Calcola i kWh dai log e SCRIVI nel relativo file .json di settimana (non sovrascrive valori esistenti)"
           >
-            Rigenera settimana
+            Calcola & scrivi kWh (sett.)
           </button>
+
+          {/* Calcolo massivo una tantum su tutte le settimane elencate */}
+          <button
+            className="px-3 py-1 rounded-xl shadow text-sm hover:shadow-md"
+            disabled={!weeksList || weeksList.length === 0}
+            onClick={calcAndWriteAllWeeks}
+            title="Calcola i kWh e li scrive su TUTTE le settimane disponibili (idempotente)"
+          >
+            Calcola tutte le settimane
+          </button>
+
         </div>
       </div>
 
@@ -705,9 +954,7 @@ const filteredSorted = useMemo(() => {
         </div>
         <div>
           • aggiornato:{" "}
-          {refreshedAt
-            ? new Date(refreshedAt).toLocaleString("it-IT")
-            : "—"}
+          {refreshedAt ? new Date(refreshedAt).toLocaleString("it-IT") : "—"}
         </div>
 
         <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
@@ -740,7 +987,7 @@ const filteredSorted = useMemo(() => {
           {/* Ricerca */}
           <input
             className="border rounded-lg px-2 py-1 text-sm"
-            placeholder="Cerca per codice/descrizione/cliente"
+            placeholder="Cerca per codice/descrizione/commessa"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -773,50 +1020,115 @@ const filteredSorted = useMemo(() => {
           <thead className="sticky top-0 bg-gray-50">
             <tr className="text-left">
               <th className="p-2">Descrizione</th>
-              <th className="p-2">Cliente</th>
+              <th className="p-2">Commessa</th>
               <th className="p-2">Stato</th>
               <th className="p-2">Inizio</th>
               <th className="p-2">Fine</th>
               <th className="p-2">Durata</th>
+              <th className="p-2">Cicli</th>
               <th className="p-2">Consumo kWh</th>
             </tr>
           </thead>
 
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="p-6 text-center text-gray-400">
-                  Caricamento…
-                </td>
-              </tr>
-            ) : !error && filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="p-6 text-center text-gray-400">
-                  Nessun dato da mostrare
-                </td>
-              </tr>
-            ) : (
-              filteredSorted.map((r) => (
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan={8} className="p-6 text-center text-gray-400">
+                Caricamento…
+              </td>
+            </tr>
+          ) : !error && grouped.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="p-6 text-center text-gray-400">
+                Nessun dato da mostrare
+              </td>
+            </tr>
+          ) : (
+            grouped.map((g) => {
+              const isOpen = openGroups.has(g.key);
+              return (
+                <React.Fragment key={g.key}>
+                  {/* riga madre */}
+                  <tr className="border-t hover:bg-gray-50">
+                    <td className="p-2">
+                      <button
+                        onClick={() => toggleGroup(g.key)}
+                        className="mr-2 rounded px-1 border"
+                        title={isOpen ? "Comprimi" : "Espandi"}
+                      >
+                        {isOpen ? "▾" : "▸"}
+                      </button>
+                      <span className="font-medium">{g.description}</span>{" "}
+                      <span className="text-gray-500">(Multipli)</span>
+                    </td>
+                    {/* Commessa aggregata */}
+                    <td className="p-2">{g.agg.commessa || "—"}</td>
+                    <td className="p-2">—</td>
+                    <td className="p-2">{fmtDate(g.agg.startTime)}</td>
+                    <td className="p-2">{fmtDate(g.agg.endTime)}</td>
+                    <td className="p-2">{fmtMins(g.agg.totalMins)}</td>
+                    <td className="p-2">
+                      {`${g.rows.length} di ${g.agg.totalCycles || g.rows.length}`}
+                    </td>
+                    <td className="p-2">{g.agg.consumo_kwh.toFixed(3)}</td>
+                  </tr>
 
-                <tr key={r.id} className="border-t hover:bg-gray-50">
-                  <td className="p-2">{r.description || "—"}</td>
-                  <td className="p-2">{r.customer || "—"}</td>
-                  <td className="p-2">{r.latestState || "—"}</td>
-                  <td className="p-2">{fmtDate(r.startTime)}</td>
-                  <td className="p-2">{fmtDate(r.endTime)}</td>
-                  <td className="p-2">{fmtDuration(r.startTime, r.endTime)}</td>
-                  <td className="p-2">
-                    {r.consumo_kwh === undefined || r.consumo_kwh === null
-                      ? "—"
-                      : typeof r.consumo_kwh === "string" &&
-                        r.consumo_kwh.startsWith("~")
-                      ? r.consumo_kwh // job in corso → "~x.xxx"
-                      : Number(r.consumo_kwh).toFixed(3)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
+                  {/* righe figlie */}
+                  {isOpen &&
+                    g.rows.map((r, idx) => {
+                      const totalCycles =
+                        Number(r.totalCycles || r.numWorkings || g.rows.length) || 0;
+                      const currentCycle = Number(r.currentCycle) || idx + 1;
+
+                      return (
+                        <tr key={r.id} className="border-t hover:bg-gray-50">
+                          <td className="p-2 pl-8 text-gray-700">
+                            <span className="mr-2">•</span>
+                            <span className="italic">{r.description || "—"}</span>
+                          </td>
+                          {/* Commessa per la riga */}
+                          <td className="p-2">{r.commessa || "—"}</td>
+
+                          {/* Stato */}
+                          <td className="p-2">{r.latestState || "—"}</td>
+
+                          {/* Inizio/Fine/Durata */}
+                          <td className="p-2">{fmtDate(r.startTime)}</td>
+                          <td className="p-2">{fmtDate(r.endTime)}</td>
+                          <td className="p-2">
+                            {fmtDuration(r.startTime, r.endTime)}
+                          </td>
+
+                          {/* Cicli */}
+                          <td className="p-2">
+                            {totalCycles > 0
+                              ? `${currentCycle} di ${totalCycles}`
+                              : "—"}
+                          </td>
+
+                          {/* Consumo kWh */}
+                          <td className="p-2">
+                            {(() => {
+                              const v = r.consumo_kwh;
+                              if (v == null) return "—";
+                              if (typeof v === "string") {
+                                const raw = v.trim();
+                                if (raw.startsWith("~")) return raw; // mantieni "~"
+                                const n = parseFloat(raw.replace(",", "."));
+                                return Number.isFinite(n) ? n.toFixed(3) : "—";
+                              }
+                              const n = Number(v);
+                              return Number.isFinite(n) ? n.toFixed(3) : "—";
+                            })()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </React.Fragment>
+              );
+            })
+          )}
+        </tbody>
         </table>
       </div>
 

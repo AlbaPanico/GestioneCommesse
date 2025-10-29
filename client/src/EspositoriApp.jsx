@@ -1149,27 +1149,37 @@ ${linkCartella}
   <Button type="button" onClick={handleDuplicateClick} className="bg-blue-500 text-white">
     Duplica da commessa
   </Button>
-    <div>
+  <div>
     <label className="block mb-1 font-semibold text-white" htmlFor="cliente">Cliente</label>
     <input
       id="cliente"
       type="text"
       className="w-full rounded border px-2 py-1"
       value={cliente}
-      onChange={(e) => setCliente(sanitizeAlnum(e.target.value, { upper: true }))}
+      onChange={(e) =>
+        setCliente(
+          sanitizeAlnumSpace(e.target.value, { upper: true }) // permette A-Z, 0-9 e SPAZI
+            .replace(/\s{2,}/g, ' ')                          // opzionale: comprime spazi multipli
+        )
+      }
     />
   </div>
-
-    <div>
+   <div>
     <label className="block mb-1 font-semibold text-blue-500" htmlFor="brand">Brand</label>
     <input
       id="brand"
       type="text"
       className="w-full rounded border px-2 py-1"
       value={brand}
-      onChange={(e) => setBrand(sanitizeAlnum(e.target.value, { upper: true }))}
+      onChange={(e) =>
+        setBrand(
+          sanitizeAlnumSpace(e.target.value, { upper: true }) // lettere/numeri + SPAZI
+            .replace(/\s{2,}/g, ' ')                          // (opzionale) comprime spazi multipli
+        )
+      }
     />
   </div>
+
 
     <div>
     <label className="block mb-1 font-semibold text-blue-500" htmlFor="nomeProdotto">Nome Prodotto</label>
@@ -1258,7 +1268,12 @@ ${linkCartella}
   <Input
     type="text"
     value={brand || ""}
-    onChange={(e) => setBrand(e.target.value.toUpperCase())}
+    onChange={(e) =>
+      setBrand(
+        sanitizeAlnumSpace(e.target.value, { upper: true })
+          .replace(/\s{2,}/g, ' ')
+      )
+    }
     className="bg-white rounded border px-2 py-1"
   />
 </div>

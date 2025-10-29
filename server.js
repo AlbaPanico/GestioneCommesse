@@ -3275,19 +3275,91 @@ scheduleWeeklyRegen(w, y, 5000);
     console.warn('[PROTEK RT] init error:', e?.message || String(e));
   }
 }
-// [GIALLA - riga successiva] ---------------------------------------------------
 
 
 
+// ✅ Overlay kWh dai weekly: se week/year passati usa quel file; altrimenti merge dai più recenti
 app.get('/api/protek/programs', (req, res) => {
-  const { monitorPath } = readProtekSettings();
+  const { monitorPath, settimanaJsonPath } = readProtekSettings();
   if (!monitorPath || !fs.existsSync(monitorPath)) {
     return res.status(404).json({ error: 'Percorso di monitoraggio Protek non impostato o non esistente.' });
   }
-  const programs = buildProgramsFromCsv(monitorPath);
-  res.json({ programs, meta: { monitorPath, generatedAt: new Date().toISOString() } });
-});
 
+  try {
+    const programs = buildProgramsFromCsv(monitorPath);
+
+    const week = Number(req.query.week);
+    const year = Number(req.query.year);
+
+    // calcola base dir dei weekly
+    const baseWeekly = (
+      settimanaJsonPath &&
+      fs.existsSync(settimanaJsonPath) &&
+      fs.statSync(settimanaJsonPath).isDirectory()
+    ) ? settimanaJsonPath
+      : (settimanaJsonPath ? path.dirname(settimanaJsonPath) : path.join(__dirname, 'data'));
+
+    // costruisci mappa key->kWh salvati
+    const kwhByKey = new Map();
+
+    const addFromFile = (fp) => {
+      try {
+        if (!fs.existsSync(fp)) return;
+        const rows = JSON.parse(fs.readFileSync(fp, 'utf8') || '[]');
+        if (!Array.isArray(rows)) return;
+        for (const r of rows) {
+          const k   = _safeKey(r);
+          const kwh = r && r.consumo_kwh != null ? Number(r.consumo_kwh) : NaN;
+          if (k && !Number.isNaN(kwh) && kwh > 0) {
+            // tieni sempre il massimo, per safety in caso di rigenerazioni parziali
+            const prev = kwhByKey.get(k);
+            if (prev === undefined || prev < kwh) kwhByKey.set(k, kwh);
+          }
+        }
+      } catch (e) {
+        console.warn('[programs overlay] errore leggendo', fp, e?.message || String(e));
+      }
+    };
+
+    if (Number.isFinite(week) && Number.isFinite(year)) {
+      // overlay mirato su quella settimana
+      addFromFile(path.join(baseWeekly, `Protek_${week}_${year}.json`));
+    } else {
+      // overlay automatico: prendo i weekly più recenti (es. ultimi 16)
+      try {
+        let files = fs.readdirSync(baseWeekly)
+          .filter(f => /^Protek_(\d+)_(\d+)\.json$/i.test(f))
+          .map(name => ({
+            name,
+            mtime: (() => { try { return fs.statSync(path.join(baseWeekly, name)).mtimeMs || 0; } catch { return 0; } })()
+          }))
+          .sort((a, b) => b.mtime - a.mtime)
+          .slice(0, 16) // ~4 mesi; regola pure
+          .map(x => x.name);
+
+        for (const fname of files) addFromFile(path.join(baseWeekly, fname));
+      } catch {}
+    }
+
+    // applica overlay alla lista programmi
+    const merged = programs.map(p => {
+      const k   = _safeKey(p);
+      const kwh = kwhByKey.get(k);
+      return (kwh !== undefined) ? { ...p, consumo_kwh: Number(kwh) } : p;
+    });
+
+    return res.json({
+      programs: merged,
+      meta: {
+        monitorPath,
+        generatedAt: new Date().toISOString(),
+        overlay: Number.isFinite(week) && Number.isFinite(year) ? `${week}/${year}` : 'auto-recent'
+      }
+    });
+  } catch (e) {
+    return res.status(500).json({ error: 'Errore costruendo la lista programmi Protek.', detail: String(e?.message || e) });
+  }
+});
 
 // ───────────────────────────────────────────────────────────────────────────────
 // PROTEK: generatore file settimanale Protek_<week>_<year>.json
@@ -3348,31 +3420,48 @@ async function generaSettimanaProtek(week, year) {
   }
   const existingByKey = new Map(existing.map(r => [_keyOfProgramRow(r), r]));
 
-  // preparo payload per calcolo kWh dal backend Protek (Flask 5052)
-  const jobs = rows.map(r => ({
-    id: _keyOfProgramRow(r),
-    startTime: r.startTime || null,
-    endTime: r.endTime || null
-  }));
+  
+  const isPast = isPastWeek(week, year);
 
-  let byId = {};
-  try {
-    const resp = await axios.post('http://192.168.1.250:5052/api/energy/rangebulk', { jobs }, { timeout: 8000 });
-    byId = (resp?.data?.data?.byId) || {};
-  } catch (e) {
-    console.warn('[PROTEK] rangebulk fallita:', e?.message || String(e));
-    // se fallisce, proseguo senza kWh (ma preservo quelli esistenti)
+  if (isPast) {
+    // 🔒 Settimana PASSATA: NON ricalcolo nulla.
+    // Mantengo SOLO i kWh già acquisiti nel file settimanale esistente.
+    rows = rows.map(r => {
+      const key  = _keyOfProgramRow(r);
+      const prev = existingByKey.get(key);
+      if (prev && prev.consumo_kwh !== undefined && prev.consumo_kwh !== null) {
+        return { ...r, consumo_kwh: +prev.consumo_kwh };
+      }
+      return r;
+    });
+  } else {
+    // 📡 Settimana CORRENTE: posso (ri)calcolare e fare il max(prev, calcolato)
+    const jobs = rows.map(r => ({
+      id: _keyOfProgramRow(r),
+      startTime: r.startTime || null,
+      endTime: r.endTime || null
+    }));
+
+    let byId = {};
+    try {
+      const resp = await axios.post('http://192.168.1.250:5052/api/energy/rangebulk', { jobs }, { timeout: 8000 });
+      byId = (resp?.data?.data?.byId) || {};
+    } catch (e) {
+      console.warn('[PROTEK] rangebulk fallita:', e?.message || String(e));
+      // se fallisce, proseguo senza kWh (ma preservo quelli esistenti)
+    }
+
+    // arricchisco righe con consumo_kwh = max(esistente, calcolato)
+    rows = rows.map(r => {
+      const key   = _keyOfProgramRow(r);
+      const prev  = existingByKey.get(key);
+      const prevK = Number.isFinite(+prev?.consumo_kwh) ? +prev.consumo_kwh : 0;
+      const calcK = Number.isFinite(+byId?.[key]?.kwh) ? +byId[key].kwh : 0;
+      const finalK = Math.max(prevK, calcK);
+      return finalK > 0 ? { ...r, consumo_kwh: Number(finalK.toFixed(6)) } : { ...r };
+    });
   }
 
-  // arricchisco righe con consumo_kwh = max(esistente, calcolato)
-  rows = rows.map(r => {
-    const key = _keyOfProgramRow(r);
-    const prev = existingByKey.get(key);
-    const prevK = Number.isFinite(+prev?.consumo_kwh) ? +prev.consumo_kwh : 0;
-    const calcK = Number.isFinite(+byId?.[key]?.kwh) ? +byId[key].kwh : 0;
-    const finalK = Math.max(prevK, calcK);
-    return finalK > 0 ? { ...r, consumo_kwh: Number(finalK.toFixed(6)) } : { ...r };
-  });
 
   // scrittura atomica
   const tmp = outFile + '.tmp';
@@ -3388,12 +3477,22 @@ async function generaSettimanaProtek(week, year) {
 // ───────────────────────────────────────────────────────────────────────────────
 
 // Rigenera il file della settimana/anno passati (default: settimana/anno correnti)
-app.post('/api/protek/rigenera-report-settimanale', (req, res) => {
+app.post('/api/protek/rigenera-report-settimanale', async (req, res) => {
   try {
-    const now = new Date();
+    const now  = new Date();
     const week = Number(req.query.week ?? req.body?.week ?? getISOWeek(now));
     const year = Number(req.query.year ?? req.body?.year ?? getISOWeekYear(now));
-    const { outFile, count } = generaSettimanaProtek(week, year);
+
+    // [GIALLA - riga precedente] ----------------------------------------------
+    if (isPastWeek(week, year)) {
+      return res.status(409).json({
+        ok: false,
+        error: 'Rigenerazione bloccata: settimana passata (solo lettura).'
+      });
+    }
+    // [GIALLA - riga successiva] ----------------------------------------------
+
+    const { outFile, count } = await generaSettimanaProtek(week, year);
     res.json({ ok: true, week, year, outFile, count });
   } catch (e) {
     res.status(500).json({ ok: false, error: e?.message || String(e) });
@@ -3506,18 +3605,79 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Alias: compatibilità con frontend che chiamano /api/protek/rigenera-settimana
-app.post('/api/protek/rigenera-settimana', (req, res) => {
+// Ricava la cartella base dove sono salvati i Protek_<week>_<year>.json
+function getSettimanaBaseDir() {
+  const { settimanaJsonPath } = readProtekSettings();
   try {
-    const now = new Date();
+    if (settimanaJsonPath && fs.existsSync(settimanaJsonPath)) {
+      const st = fs.statSync(settimanaJsonPath);
+      return st.isDirectory() ? settimanaJsonPath : path.dirname(settimanaJsonPath);
+    }
+  } catch {}
+  return path.join(__dirname, 'data');
+}
+
+// Carica una mappa key->kWh leggendo gli ultimi N file settimanali Protek_*.json
+function loadAllWeeklyKwhMap(limitFiles = 12) {
+  const base = getSettimanaBaseDir();
+  const map = new Map();
+  if (!fs.existsSync(base)) return map;
+
+  let files = [];
+  try {
+    files = fs.readdirSync(base)
+      .filter(f => /^Protek_(\d+)_(\d+)\.json$/i.test(f))
+      .map(name => ({
+        name,
+        mtime: (() => { try { return fs.statSync(path.join(base, name)).mtimeMs || 0; } catch { return 0; } })()
+      }))
+      .sort((a, b) => b.mtime - a.mtime)       // più recenti prima
+      .slice(0, limitFiles)                    // limita per performance
+      .map(x => x.name);
+  } catch {}
+
+  for (const fname of files) {
+    const fp = path.join(base, fname);
+    try {
+      const rows = JSON.parse(fs.readFileSync(fp, 'utf8') || '[]');
+      if (!Array.isArray(rows)) continue;
+      for (const r of rows) {
+        const key = _keyOfProgramRow(r);
+        const kwh = (r && Number.isFinite(+r.consumo_kwh)) ? +r.consumo_kwh : undefined;
+        if (key && kwh !== undefined) {
+          // tieni il MAX tra eventuali duplicati (safety)
+          if (!map.has(key) || map.get(key) < kwh) map.set(key, kwh);
+        }
+      }
+    } catch {}
+  }
+  return map;
+}
+
+// Alias: compatibilità con frontend che chiamano /api/protek/rigenera-settimana
+app.post('/api/protek/rigenera-settimana', async (req, res) => {
+  try {
+    const now  = new Date();
     const week = Number(req.query.week ?? req.body?.week ?? getISOWeek(now));
     const year = Number(req.query.year ?? req.body?.year ?? getISOWeekYear(now));
-    const { outFile, count } = generaSettimanaProtek(week, year);
+
+    // [GIALLA - riga precedente] ----------------------------------------------
+    if (isPastWeek(week, year)) {
+      return res.status(409).json({
+        ok: false,
+        error: 'Rigenerazione bloccata: settimana passata (solo lettura).'
+      });
+    }
+    // [GIALLA - riga successiva] ----------------------------------------------
+
+    const { outFile, count } = await generaSettimanaProtek(week, year);
     res.json({ ok: true, week, year, outFile, count });
   } catch (e) {
     res.status(500).json({ ok: false, error: e?.message || String(e) });
   }
 });
+
+
 
 
 // ───────────────────────────────────────────────────────────────────────────────

@@ -218,8 +218,33 @@ function backupAndResetWeeklyReportsIfNeeded() {
 
 // ========== LOGICA REPORT ==========
 async function generaReportGenerali() {
-  // Prima cosa: fa backup e reset se serve!
-  backupAndResetWeeklyReportsIfNeeded();
+  // ✅ FIX 2025-10 — Evita di toccare settimane passate
+  // Il vecchio backupAndResetWeeklyReportsIfNeeded() resettava tutti i file base,
+  // causando la perdita dei dati di kWh delle settimane precedenti.
+  // Ora effettuiamo il backup/reset solo la domenica notte della settimana corrente.
+  try {
+    const now = new Date();
+    const currentWeek = getWeekNumber(now);
+    const currentYear = now.getFullYear();
+
+    const lastFlag = fs.existsSync(FLAG_PATH)
+      ? JSON.parse(fs.readFileSync(FLAG_PATH, "utf8"))
+      : { week: null, year: null };
+
+    // Se siamo in una settimana NUOVA rispetto al flag → fai backup/reset una volta
+    if (
+      (lastFlag.week !== currentWeek || lastFlag.year !== currentYear) &&
+      now.getDay() === 0 // 0 = Domenica
+    ) {
+      console.log(`[generaReportGenerali] ⚙️ Nuova settimana ${currentWeek}/${currentYear}, eseguo backup/reset una sola volta.`);
+      backupAndResetWeeklyReportsIfNeeded();
+    } else {
+      // niente da fare, mantieni i file attuali
+      console.log(`[generaReportGenerali] ✅ Nessun reset: settimana ${currentWeek}/${currentYear} già attiva.`);
+    }
+  } catch (e) {
+    console.warn("[generaReportGenerali] Warning controllo reset:", e?.message || e);
+  }
 
   const settingsPath = path.join(__dirname, "data", "stampantiSettings.json");
   if (!fs.existsSync(settingsPath)) return;
